@@ -1,5 +1,6 @@
 const CACHE_NAME = 'bieumau-cache-v1';
 const urlsToCache = [
+  './',
   './index.html',
   './manifest.json',
   './icon-192x192.png',
