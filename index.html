@@ -1,0 +1,2860 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+	
+	<link rel="preconnect" href="https://www.gstatic.com">
+	<link rel="dns-prefetch" href="https://quanlybieumau-default-rtdb.asia-southeast1.firebasedatabase.app">
+    <title>Quản Lý Biểu Mẫu</title>
+	<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'></path><polyline points='14 2 14 8 20 8'></polyline><line x1='16' y1='13' x2='8' y2='13'></line><line x1='16' y1='17' x2='8' y2='17'></line><polyline points='10 9 9 9 8 9'></polyline></svg>">
+    <link rel="manifest" href="manifest.json">
+	<meta name="theme-color" content="#2563eb">
+	<link rel="apple-touch-icon" href="icon-192x192.png">
+	<style>
+        /* --- CLASS PHÂN QUYỀN ADMIN --- */
+        body:not(.is-admin) .admin-only { display: none !important; }
+
+		.folder-delete-btn { display: none; color: #ef4444; cursor: pointer; padding: 4px; transition: var(--transition); border-radius: 4px; align-items: center; justify-content: center; margin-left: auto; }
+		.folder-delete-btn:hover { background-color: #fef2f2; transform: scale(1.1); }
+		body.delete-mode-active .folder-delete-btn { display: flex; opacity: 1; }
+		body.delete-mode-active .chevron, body.delete-mode-active .pin-icon { display: none !important; }
+		.hd-item-parent:hover { background: var(--primary-light); color: #2563eb !important; }
+		.hd-item-parent:hover .menu-arrow { color: #2563eb !important; }
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --primary-light: #eff6ff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --bg-body: #f1f5f9; 
+            --bg-sidebar: #ffffff;
+            --border: #e2e8f0;
+            --sidebar-width: 340px; 
+            --header-height: 64px; 
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+            --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.05), 0 2px 4px -1px rgba(15, 23, 42, 0.03);
+            --shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -2px rgba(15, 23, 42, 0.04);
+            --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+	
+        /* --- Nút mở Sidebar (Desktop) --- */
+        .sidebar-trigger {
+            position: fixed; left: 16px; top: 16px; z-index: 10;
+            background: white; border: 1px solid var(--border);
+            padding: 10px; border-radius: var(--radius-md);
+            cursor: pointer; box-shadow: var(--shadow-md);
+            display: none; transition: var(--transition); color: var(--text-muted);
+        }
+        .sidebar-trigger:hover { transform: scale(1.05); color: #2563eb; border-color: #cbd5e1; }
+        body.sidebar-collapsed .sidebar-trigger { display: block; }
+
+        /* --- Mobile Header --- */
+        .mobile-header {
+            display: none; height: var(--header-height); background-color: var(--bg-sidebar);
+            border-bottom: 1px solid var(--border); padding: 0 1.25rem; align-items: center;
+            justify-content: flex-start; position: absolute; top: 0; left: 0; right: 0;
+            z-index: 20; box-shadow: var(--shadow-sm);
+        }
+        .mobile-header .menu-toggle { position: absolute; right: 1.25rem; }
+
+        .menu-toggle, .btn-icon {
+            background: none; border: none; cursor: pointer; color: var(--text-muted);
+            display: flex; align-items: center; justify-content: center;
+            padding: 8px; border-radius: var(--radius-sm); transition: var(--transition);
+        }
+        .menu-toggle:hover, .btn-icon:hover { background-color: var(--bg-body); color: #2563eb; }
+
+        /* --- Sidebar --- */
+        .sidebar {
+            width: var(--sidebar-width); background-color: var(--bg-sidebar);
+            border-right: 1px solid var(--border); display: flex; flex-direction: column;
+            z-index: 30; transition: var(--transition); box-shadow: var(--shadow-sm);
+        }
+        body.sidebar-collapsed .sidebar { margin-left: calc(-1 * var(--sidebar-width)); }
+
+        .sidebar-header {
+            padding: 0 1rem; height: var(--header-height); border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center; gap: 4px;
+            background-color: rgba(255, 255, 255, 0.9); backdrop-filter: blur(8px); position: relative;
+            z-index: 40;
+        }
+
+        .brand-wrapper { display: flex; align-items: center; gap: 10px; flex: 1; }
+        .brand-wrapper svg { color: #2563eb; fill: var(--primary-light); }
+        .brand-wrapper h2 { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.01em; color: #2563eb; }
+
+        /* --- Menu Thêm Mới Header --- */
+        .header-actions { position: relative; display: flex; align-items: center; }
+        .btn-header-add {
+            background: #2563eb; color: white; border: none; padding: 6px;
+            border-radius: var(--radius-sm); cursor: pointer; display: flex;
+            align-items: center; justify-content: center; transition: var(--transition);
+        }
+        .btn-header-add:hover { background: var(--primary-hover); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+        
+        .header-dropdown {
+            position: absolute; top: calc(100% + 8px); right: 0; background: #ffffff;
+            border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
+            display: none; flex-direction: column; min-width: 170px; z-index: 100; padding: 6px;
+        }
+        .header-dropdown.show { display: flex; animation: slideDown 0.15s ease-out; }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .hd-item {
+            padding: 8px 12px; border: none; background: none; width: 100%;
+            text-align: left; font-size: 0.85rem; font-weight: 500; color: var(--text-main);
+            cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 10px; transition: var(--transition);
+            white-space: nowrap; /* Ép chữ không bao giờ bị xuống dòng */
+        }
+        
+        .hd-item-parent {
+            white-space: nowrap; /* Áp dụng luôn cho nút Quản lý Thư mục */
+        }
+        .hd-item svg { color: #94a3b8; transition: var(--transition); }
+        .hd-item:hover { background: var(--primary-light); color: #2563eb; }
+        .hd-item:hover svg { color: #2563eb; }
+
+        .action-container { padding: 1.25rem 1rem 0.65rem 1rem; display: flex; align-items: center; }
+        .search-wrapper { position: relative; flex: 1; display: flex; align-items: center; }
+        .search-icon { position: absolute; left: 0.75rem; color: #94a3b8; width: 16px; height: 16px; pointer-events: none; transition: var(--transition); }
+        .search-input {
+            width: 100%; padding: 0.65rem 2rem 0.65rem 2.25rem; border: 1px solid var(--border);
+            border-radius: var(--radius-md); font-size: 0.875rem; color: var(--text-main);
+            background-color: #f8fafc; outline: none; transition: var(--transition); font-weight: 500;
+        }
+        .search-input::placeholder { color: #94a3b8; font-weight: 400; }
+        .search-input:focus { border-color: #2563eb; background-color: #ffffff; box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
+        .search-input:focus ~ .search-icon { color: #2563eb; }
+        .clear-search-btn {
+            position: absolute; right: 0.5rem; background: none; border: none; font-size: 1.2rem;
+            color: #94a3b8; cursor: pointer; padding: 0 4px; display: none; transition: var(--transition);
+        }
+        .clear-search-btn:hover { color: var(--text-main); }
+
+        .nav-menu { 
+            display: flex; flex-direction: column; overflow-y: auto; 
+            padding: 0 1rem 1rem 1rem; flex: 1; 
+        }
+        .nav-menu::before { content: ''; display: block; height: 0.5rem; flex-shrink: 0; }
+        .nav-menu::-webkit-scrollbar { width: 5px; }
+        .nav-menu::-webkit-scrollbar-track { background: transparent; }
+        .nav-menu::-webkit-scrollbar-thumb { background-color: transparent; border-radius: 10px; transition: background-color 0.3s; }
+        .nav-menu:hover::-webkit-scrollbar-thumb { background-color: #cbd5e1; }
+        .nav-menu::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }
+
+        /* --- Folders & Cài đặt CSS Var Màu Động --- */
+        .folder-group { 
+			margin-bottom: 12px; /* Tăng từ 8px lên 12px[cite: 1] */
+			border: 1px solid transparent; 
+			transition: var(--transition); 
+			border-radius: var(--radius-md); 
+			--folder-color: #2563eb;
+		}
+        .folder-group.dragging { opacity: 0.5; background: var(--bg-body); border: 1px dashed var(--folder-color); }
+        .folder-group.drag-over { border-top: 3px solid var(--folder-color); }
+
+        .folder-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 12px; font-size: 0.85rem; font-weight: 700; color: var(--text-muted);
+            cursor: pointer; user-select: none; border-radius: var(--radius-md);
+            transition: background-color 0.2s, border-radius 0.1s;
+            position: sticky; top: 0; z-index: 20;
+            background-color: #ffffff;
+            border-bottom: 1px solid transparent;
+            box-shadow: 0 0 0 1px #ffffff;
+        }
+        
+        .folder-header.is-pinned-top { 
+			border-top-left-radius: 0; 
+			border-top-right-radius: 0;
+			border-bottom: 1px solid var(--border); 
+			box-shadow: 0 4px 10px -2px rgba(15, 23, 42, 0.1); /* Tăng bóng đổ */
+			background-color: rgba(255, 255, 255, 0.95); /* Thêm độ mờ mờ tinh tế */
+			backdrop-filter: blur(8px); /* Hiệu ứng kính mờ */
+		}
+        
+        .folder-header:hover { background-color: var(--primary-light); box-shadow: 0 0 0 1px var(--primary-light); }
+        
+        .folder-grip { display: none; color: #cbd5e1; cursor: grab; padding: 2px; transition: var(--transition); align-items: center; justify-content: center; }
+		.folder-grip:hover { color: #64748b; }
+		.folder-grip:active { cursor: grabbing; }
+
+		/* CSS hiển thị icon khi bật chế độ sắp xếp (class được thêm qua JS) */
+		body.sort-mode-active .folder-grip { display: flex; opacity: 1; }
+		body.sort-mode-active .folder-grip-placeholder { display: block !important; }
+
+        .color-dot { width: 12px; height: 12px; border-radius: 4px; display: inline-block; flex-shrink: 0; }
+        .pin-icon { color: #f59e0b; width: 14px; height: 14px; flex-shrink: 0; }
+
+        .folder-header svg.chevron { transition: transform 0.2s; color: #94a3b8; }
+        .folder-header.collapsed svg.chevron { transform: rotate(-90deg); }
+        
+        /* Tăng khoảng cách giữa các item trong thư mục */
+		.folder-content { 
+			gap: 6px; /* Thay vì 2px như cũ */
+			padding: 6px 8px; 
+		}
+
+		/* Cân đối lại không gian click của nút */
+		.tab-btn { 
+			padding: 0.65rem 0.75rem; /* Cân bằng lại padding trái phải */
+			font-size: 0.9rem; /* Tăng nhẹ cỡ chữ để dễ đọc hơn */
+		}
+        .folder-content.collapsed { display: none; }
+        .folder-content.drag-over { background-color: rgba(37, 99, 235, 0.05); border: 1px dashed rgba(37, 99, 235, 0.4); }
+		
+        /* --- Menu Items & Đổ Màu Động --- */
+        .nav-item { position: relative; width: 100%; border-radius: var(--radius-md); transition: opacity 0.2s, transform 0.2s, background-color 0.2s; background-color: var(--bg-sidebar); display: flex; align-items: center; overflow: hidden; border: 1px solid transparent; }
+        .folder-content .nav-item { padding-left: 6px; } 
+        .nav-item.dragging { opacity: 0.4; transform: scale(0.98); background-color: var(--bg-body); box-shadow: inset 0 0 0 1px var(--folder-color); z-index: 100;}
+
+        .tab-btn { background: none; border: none; padding: 0.75rem 2.5rem 0.75rem 1rem; cursor: pointer; font-size: 0.875rem; color: var(--text-muted); text-align: left; display: flex; align-items: center; gap: 10px; transition: var(--transition); font-weight: 500; line-height: 1.5; width: 100%; }
+        .tab-btn svg.icon-doc { color: #94a3b8; transition: var(--transition); flex-shrink: 0; }
+        
+        .nav-item:hover { 
+    background-color: var(--primary-light); 
+    border-color: rgba(37, 99, 235, 0.15); 
+    transform: translateY(-1px); /* Cảm giác nút bấm nổi lên[cite: 1] */
+    box-shadow: var(--shadow-sm); /* Bổ sung shadow[cite: 1] */
+}
+        .nav-item:hover .tab-btn { color: var(--primary); }
+        .nav-item:hover svg.icon-doc { color: var(--primary); transform: scale(1.15) rotate(-5deg); }
+        
+        .nav-item::before {
+            content: ''; position: absolute; left: 0; top: 15%; height: 70%; width: 3px;
+            background-color: var(--primary); border-radius: 0 4px 4px 0; opacity: 0;
+            transform: scaleY(0.5); transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); z-index: 2;
+        }
+        .nav-item:hover::before { opacity: 1; transform: scaleY(1); }
+        
+        .tab-btn-text { transition: transform 0.2s ease; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; line-height: 1.4; }
+        .nav-item:hover .tab-btn-text { transform: translateX(4px); }
+
+        .nav-item:has(.tab-btn.active) {
+            border-color: color-mix(in srgb, var(--folder-color) 30%, transparent) !important;
+            background-color: color-mix(in srgb, var(--folder-color) 12%, transparent) !important;
+        }
+        .tab-btn.active { color: var(--folder-color) !important; font-weight: 600; }
+        .tab-btn.active svg.icon-doc { color: var(--folder-color) !important; }
+
+        mark.highlight { background-color: #fef08a; color: #0f172a; padding: 0 2px; border-radius: 2px; font-weight: 600; }
+
+        .item-actions { 
+    position: absolute; 
+    right: 4px; /* Dịch vào trong một chút[cite: 1] */
+    display: flex; 
+    align-items: center; 
+    gap: 2px; 
+    opacity: 0; 
+    transition: var(--transition);
+    background: linear-gradient(90deg, transparent, var(--primary-light) 30%); /* Tránh chữ đè lên icon khi hover[cite: 1] */
+    padding-left: 10px;
+    height: 100%; /* Căn giữa hoàn hảo[cite: 1] */
+}
+        .nav-item:hover .item-actions, .nav-item:has(.tab-btn.active) .item-actions { opacity: 1; }
+        
+        .action-icon-btn { background: none; border: none; padding: 6px; border-radius: var(--radius-sm); color: #94a3b8; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: var(--transition); }
+        .action-icon-btn:hover { color: var(--text-main); background-color: #e2e8f0; }
+        .action-icon-btn.grip { cursor: grab; }
+        .action-icon-btn.grip:active { cursor: grabbing; }
+
+        .skeleton-loader { display: flex; flex-direction: column; gap: 8px; padding: 8px 0; }
+        .skeleton-block { height: 42px; background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%); background-size: 200% 100%; animation: loading-pulse 1.5s infinite; border-radius: var(--radius-md); }
+        @keyframes loading-pulse { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        .no-result { padding: 3rem 1rem; color: var(--text-muted); font-size: 0.875rem; text-align: center; display: none; flex-direction: column; align-items: center; gap: 12px; }
+
+        /* --- Context Menu --- */
+        .context-menu { display: flex; flex-direction: column; gap: 2px; position: fixed; background: #ffffff; border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); z-index: 1000; padding: 6px; min-width: 180px; opacity: 0; visibility: hidden; transform: scale(0.95); transform-origin: top left; transition: opacity 0.15s, transform 0.15s, visibility 0.15s; }
+        .context-menu.show { opacity: 1; visibility: visible; transform: scale(1); }
+        .context-menu-item { padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: var(--text-main); transition: var(--transition); border: none; background: none; width: 100%; text-align: left; font-weight: 500; border-radius: 4px; }
+        .context-menu-item svg { color: #94a3b8; flex-shrink: 0; }
+        .context-menu-item:hover { background-color: var(--primary-light); color: #2563eb; }
+        .context-menu-item:hover svg { color: #2563eb; }
+        .context-menu-item.download:hover { background-color: #d1fae5; color: #059669; }
+        .context-menu-item.download:hover svg { color: #059669; }
+        .context-menu-item.delete:hover { background-color: #fef2f2; color: #dc2626; }
+        .context-menu-item.delete:hover svg { color: #dc2626; }
+        .context-menu-item.pin:hover { background-color: #fef3c7; color: #d97706; }
+        .context-menu-item.pin:hover svg { color: #d97706; }
+        .context-divider { height: 1px; background-color: var(--border); margin: 4px 0; border: none; }
+
+        /* --- Vùng Preview --- */
+        .preview-container { flex: 1; background-color: var(--bg-body); position: relative; padding: 16px 24px 24px 16px; height: 100vh; transition: var(--transition); }
+        body.sidebar-collapsed .preview-container { padding-left: 72px; }
+        .iframe-wrapper { width: 100%; height: 100%; background-color: #fff; border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-lg); border: 1px solid rgba(226, 232, 240, 0.8); position: relative; }
+        .iframe-loading { position: absolute; inset: 0; background: #f8fafc; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; transition: opacity 0.3s; pointer-events: none; }
+        .spinner { width: 40px; height: 40px; border: 3px solid #e2e8f0; border-top-color: #2563eb; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        iframe { width: 100%; height: 100%; border: none; display: block; background: transparent; position: relative; z-index: 10; opacity: 0; transition: opacity 0.5s; }
+        iframe.loaded { opacity: 1; }
+
+        .overlay { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); z-index: 25; backdrop-filter: blur(2px); opacity: 0; transition: opacity 0.3s ease; }
+        .overlay.show { display: block; opacity: 1; }
+        .toast-container { position: fixed; top: 24px; right: 24px; z-index: 99999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+        .toast { background: white; border-left: 4px solid #2563eb; box-shadow: var(--shadow-lg); border-radius: var(--radius-md); padding: 12px 20px; display: flex; align-items: center; gap: 12px; min-width: 250px; transform: translateX(120%); transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
+        .toast.show { transform: translateX(0); }
+        .toast.success { border-left-color: #10b981; }
+        .toast.error { border-left-color: #ef4444; }
+        .toast p { font-size: 0.875rem; font-weight: 500; color: var(--text-main); margin: 0; }
+
+        .modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); z-index: 100; backdrop-filter: blur(4px); align-items: center; justify-content: center; opacity: 0; transition: opacity 0.25s ease; }
+        .modal.show { display: flex; opacity: 1; }
+        
+        /* Đã thêm max-height và overflow-y để bật thanh cuộn */
+        .modal-content { background: #ffffff; border-radius: var(--radius-lg); width: 100%; max-width: 440px; padding: 1.5rem; box-shadow: var(--shadow-lg); transform: scale(0.95); transition: var(--transition); max-height: 90vh; overflow-y: auto; }
+        
+        /* Làm đẹp thanh cuộn cho Popup để giao diện tinh tế hơn */
+        .modal-content::-webkit-scrollbar { width: 6px; }
+        .modal-content::-webkit-scrollbar-track { background: transparent; }
+        .modal-content::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 10px; }
+        .modal-content::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }
+
+        .modal.show .modal-content { transform: scale(1); }
+		.custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 10px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem; }
+        .modal-header h3 { font-size: 1.1rem; font-weight: 700; color: var(--text-main); }
+        .form-group { margin-bottom: 1rem; display: flex; flex-direction: column; gap: 6px; }
+        .form-group label { font-size: 0.85rem; font-weight: 600; color: var(--text-main); }
+        .form-group input:not([type="checkbox"]) { padding: 0.65rem 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 0.875rem; outline: none; transition: var(--transition); }
+        .form-group input[type="color"] { padding: 2px 4px; height: 38px; cursor: pointer; }
+        .form-group input:not([type="checkbox"]):focus { border-color: #2563eb; box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
+        .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1rem; }
+        .btn-secondary, .btn-primary { border: none; padding: 0.65rem 1.25rem; border-radius: var(--radius-md); font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: var(--transition); }
+        .btn-secondary { background: #f1f5f9; color: var(--text-muted); }
+        .btn-secondary:hover { background: #e2e8f0; color: var(--text-main); }
+        .btn-primary { background: #2563eb; color: white; }
+        .btn-primary:hover { background: var(--primary-hover); }
+
+        @media (max-width: 768px) {
+            .mobile-header { display: flex; }
+            .sidebar-trigger { display: none !important; }
+            .preview-container { padding: calc(var(--header-height) + 12px) 12px 12px 12px !important; }
+            .sidebar { position: fixed; top: 0; left: 0; height: 100vh; transform: translateX(-100%); box-shadow: var(--shadow-lg); }
+            body.sidebar-collapsed .sidebar { margin-left: 0; }
+            .sidebar.open { transform: translateX(0); }
+            .hide-on-mobile { display: none; }
+            .item-actions { opacity: 1; }
+        }
+
+		.header-actions:hover .header-dropdown { display: flex !important; animation: slideDown 0.15s ease-out; }
+		.header-dropdown::before { content: ''; position: absolute; top: -12px; left: 0; width: 100%; height: 12px; background: transparent; }
+		#hd-folder-sub { display: none !important; position: absolute !important; top: -5px !important; left: calc(100% + 5px) !important; right: auto !important; margin: 0 !important; }
+		.hd-item-parent:hover #hd-folder-sub { display: flex !important; }
+		#hd-folder-sub::before { content: ''; position: absolute; top: 0; left: -10px !important; right: auto !important; width: 15px; height: 100%; background: transparent; }
+		.header-dropdown { 
+			left: 0 !important; 
+			right: auto !important; 
+			transform: none !important; 
+		}
+
+		@keyframes slideDownLeft { 
+			from { opacity: 0; transform: translateY(-5px); } 
+			to { opacity: 1; transform: translateY(0); } 
+		}
+
+		.header-actions:hover .header-dropdown {
+			display: flex !important;
+			animation: slideDownLeft 0.15s ease-out forwards !important;
+		}
+        .folder-group.is-hidden-folder { opacity: 0.6; filter: grayscale(40%); background-color: #f8fafc; border: 1px dashed #cbd5e1; }
+        .folder-group.is-hidden-folder .folder-header { font-style: italic; }
+		
+		/* --- DARK MODE VARIABLES --- */
+		body.dark-theme {
+			--bg-body: #0f172a; --bg-sidebar: #1e293b; --text-main: #f8fafc; --text-muted: #94a3b8;
+			--border: #334155; --primary-light: rgba(37, 99, 235, 0.15);
+		}
+		body.dark-theme .header-dropdown, body.dark-theme #hd-folder-sub, body.dark-theme .context-menu,
+		body.dark-theme .modal-content, body.dark-theme .toast, body.dark-theme .sidebar-header,
+		body.dark-theme .folder-header {
+			background-color: var(--bg-sidebar); color: var(--text-main);
+			box-shadow: 0 0 0 1px var(--border), var(--shadow-lg);
+		}
+		body.dark-theme .search-input, body.dark-theme .form-group input, body.dark-theme .form-group select {
+			background-color: var(--bg-body); color: var(--text-main); border-color: var(--border);
+		}
+		body.dark-theme .search-input:focus, body.dark-theme .form-group input:focus, body.dark-theme .form-group select:focus {
+			background-color: #1e293b;
+		}
+		body.dark-theme .iframe-loading { background: var(--bg-body); }
+		body.dark-theme .folder-group.is-hidden-folder { background-color: rgba(255, 255, 255, 0.05); }
+
+		/* --- BREADCRUMBS --- */
+		.breadcrumb-container { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 0.9rem; color: var(--text-muted); font-weight: 500; }
+		.breadcrumb-container svg { flex-shrink: 0; }
+		.breadcrumb-text { color: var(--text-main); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px;}
+		/* --- GIAO DIỆN KHỐI TÀI KHOẢN (AVATAR + TÊN) --- */
+		.user-profile-wrapper {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			cursor: pointer;
+			transition: var(--transition);
+			user-select: none;
+			background: none !important; /* Bỏ nền xám cũ */
+			border: none !important;
+			padding: 0;
+		}
+		.user-profile-wrapper:hover .avatar-circle {
+			transform: scale(1.08);
+			box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
+		}
+		.avatar-circle {
+			width: 28px;
+			height: 28px;
+			border-radius: 50%;
+			background-color: var(--primary);
+			color: white;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-weight: 700;
+			font-size: 0.85rem;
+			text-transform: uppercase;
+			flex-shrink: 0;
+			box-shadow: var(--shadow-sm);
+		}
+		.user-name-text {
+			font-size: 0.85rem;
+			font-weight: 600;
+			color: var(--text-main);
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+		/* --- TRẠNG THÁI CHƯA ĐĂNG NHẬP --- */
+		body:not(.is-logged-in) .sidebar,
+		body:not(.is-logged-in) .preview-container,
+		body:not(.is-logged-in) .mobile-header,
+		body:not(.is-logged-in) .sidebar-trigger {
+			display: none !important;
+		}
+
+		#initial-loader {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 15px;
+		}
+		/* --- MÀN HÌNH ĐĂNG NHẬP TỐI GIẢN (MINIMAL & ICON-BASED) --- */
+		.login-wrapper {
+			position: fixed; inset: 0; z-index: 10000;
+			display: flex; flex-direction: column; align-items: center; justify-content: center;
+			background-color: var(--bg-body);
+		}
+		.login-loader { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+		.login-loader p { color: var(--text-muted); font-size: 0.95rem; font-weight: 500; }
+
+		.login-card {
+			width: 100%; max-width: 360px; padding: 2.5rem 2rem;
+			background: var(--bg-sidebar); border-radius: var(--radius-lg);
+			box-shadow: var(--shadow-lg), 0 0 0 1px var(--border);
+			animation: formFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+			opacity: 0; transform: translateY(10px);
+		}
+		@keyframes formFadeIn { to { opacity: 1; transform: translateY(0); } }
+
+		.login-header { text-align: center; margin-bottom: 2rem; }
+		.login-logo {
+			display: inline-flex; align-items: center; justify-content: center;
+			width: 48px; height: 48px; border-radius: 12px;
+			background: var(--primary-light); color: var(--primary);
+			margin-bottom: 0.5rem;
+		}
+		.login-title { color: var(--text-main); font-size: 1.35rem; font-weight: 800; letter-spacing: -0.02em; }
+
+		.input-group { position: relative; margin-bottom: 1rem; }
+		.input-group input { 
+			width: 100%; padding: 0.75rem 2.5rem !important; 
+			background: var(--bg-body); border: 1px solid var(--border);
+			border-radius: var(--radius-md); color: var(--text-main); transition: var(--transition);
+			font-size: 0.9rem;
+		}
+		.input-group input:focus { border-color: var(--primary); background: var(--bg-sidebar); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+		.input-group .input-icon {
+			position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+			color: #94a3b8; width: 18px; height: 18px; pointer-events: none; transition: var(--transition);
+		}
+		.input-group input:focus ~ .input-icon, .input-group input:not(:placeholder-shown) ~ .input-icon { color: var(--primary); }
+
+		.toggle-pwd-btn {
+			position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+			background: none; border: none; color: #94a3b8; padding: 0; cursor: pointer; transition: var(--transition);
+			display: flex; align-items: center; justify-content: center;
+		}
+		.toggle-pwd-btn:hover { color: var(--text-main); }
+
+		.login-options { display: flex; align-items: center; margin-bottom: 1.5rem; }
+		.login-checkbox { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 500; color: var(--text-muted); user-select: none; }
+		.login-checkbox input { margin: 0; width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary); }
+
+		.login-btn-submit { width: 100%; padding: 0.75rem; border-radius: var(--radius-md); font-size: 0.95rem; font-weight: 600; }
+		
+		.login-error {
+			color: #ef4444; /* Màu đỏ báo lỗi */
+			font-size: 0.85rem;
+			font-weight: 500;
+			margin-bottom: 1rem;
+			text-align: center;
+			display: none; /* Ẩn mặc định, chỉ hiện khi có lỗi qua JS */
+			animation: formFadeIn 0.3s ease;
+		}
+		/* --- CẢI TIẾN UI DANH SÁCH FORM --- */
+		/* Thêm margin-left: auto để ép icon luôn bị đẩy thẳng về sát lề phải */
+		.form-status-badge { 
+			display: inline-flex; 
+			align-items: center; 
+			justify-content: center; 
+			width: 18px; /* Tăng nhẹ kích thước để dễ chạm trên mobile[cite: 1] */
+			height: 18px; 
+			border-radius: 4px; 
+			flex-shrink: 0; 
+			box-shadow: 0 0 0 1px rgba(0,0,0,0.05); 
+			margin-left: auto; 
+			margin-top: 2px; /* Căn chỉnh theo chiều dọc với dòng text đầu tiên[cite: 1] */
+		}
+		.form-status-badge.public { background: #d1fae5; color: #059669; }
+		.form-status-badge.locked { background: #fee2e2; color: #dc2626; }
+		.form-status-badge.granted { background: #dbeafe; color: #2563eb; }
+
+		/* Thêm justify-content: space-between để dàn đều nội dung 2 bên */
+		.nav-item .tab-btn-text-wrap { 
+			display: flex; 
+			align-items: flex-start; /* Căn lên trên cùng thay vì center nếu text có 2 dòng[cite: 1] */
+			gap: 8px; /* Tăng gap nhẹ[cite: 1] */
+			flex: 1; 
+			overflow: hidden; 
+		}
+
+		/* Thay max-width: 170px thành flex: 1 để tên file linh hoạt co giãn nhưng không đè lên icon */
+		.nav-item .tab-btn-name { 
+			white-space: normal; 
+			display: -webkit-box;
+			-webkit-line-clamp: 2; 
+			-webkit-box-orient: vertical;
+			line-height: 1.4;
+			word-break: break-word; 
+			margin-top: 1px; /* Đẩy nhẹ text xuống cho cân bằng với icon[cite: 1] */
+		}
+	</style>
+</head>
+<body>
+    <div id="login-screen" class="login-wrapper">
+    <div id="initial-loader" class="login-loader">
+        <div class="spinner"></div>
+        <p>Đang kiểm tra phiên đăng nhập...</p>
+    </div>
+
+    <div id="login-modal-content" class="login-card" style="display: none;">
+        <div class="login-header">
+            <div class="login-logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            </div>
+            <h2 class="login-title">KHO BIỂU MẪU</h2>
+        </div>
+        
+        <form id="login-form">
+            <div class="input-group">
+                <input type="text" id="login-email" required placeholder="Tài khoản">
+                <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            </div>
+            
+            <div class="input-group">
+                <input type="password" id="login-password" required placeholder="Mật khẩu">
+                <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                <button type="button" id="toggle-password-btn" class="toggle-pwd-btn" title="Hiện/Ẩn mật khẩu">
+                    <svg id="eye-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+            </div>
+            
+            <div class="login-options">
+                <label class="login-checkbox">
+                    <input type="checkbox" id="remember-me" checked>
+                    <span>Ghi nhớ phiên đăng nhập</span>
+                </label>
+            </div>
+            <button type="submit" class="btn-primary login-btn-submit" id="login-btn">Đăng nhập</button>
+        </form>
+    </div>
+</div>
+
+    <button class="sidebar-trigger" id="toggle-sidebar-show" title="Mở menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+    </button>
+
+    <header class="mobile-header">
+        <div class="brand-wrapper">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <h2>KHO BIỂU MẪU</h2>
+        </div>
+        <button class="menu-toggle" id="open-menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+    </header>
+
+    <div class="overlay" id="overlay"></div>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="brand-wrapper">
+                <div class="header-actions">
+                    <div class="user-profile-wrapper" id="btn-header-add" title="Tài khoản">
+                        <div class="avatar-circle" id="user-avatar">-</div>
+                    </div>
+                    
+                    <div class="header-dropdown" id="header-dropdown" style="min-width: 190px;">
+                        <div class="hd-item-parent admin-only" id="menu-folder-parent" style="position: relative; display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 8px 12px; font-size: 0.85rem; font-weight: 500; color: var(--text-main); cursor: pointer; border-radius: 4px; transition: var(--transition);">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                                Quản lý Thư mục
+                            </div>
+                            <svg class="menu-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: #94a3b8;"><polyline points="9 18 15 12 9 6"></polyline></svg>
+
+                            <div id="hd-folder-sub" style="display: none; position: absolute; left: calc(100% + 5px); top: -5px; background: #ffffff; border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); flex-direction: column; padding: 6px; min-width: 170px; z-index: 105;">
+                                <button class="hd-item" id="menu-sort-folder">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6l3 -3l3 3"></path><path d="M6 3v18"></path><path d="M21 18l-3 3l-3 -3"></path><path d="M18 21v-18"></path></svg>
+                                    Sắp xếp
+                                </button>
+                                <button class="hd-item" id="menu-add-folder">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>
+                                    Thêm mới
+                                </button>
+                                <button class="hd-item" id="menu-toggle-hidden-folders">
+                                    <svg id="icon-toggle-hidden" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                                    <span id="text-toggle-hidden">Hiện thư mục ẩn</span>
+                                </button>
+                                <button class="hd-item" id="menu-delete-folder" style="color: #dc2626;">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                    Xóa thư mục
+                                </button>
+                            </div>
+                        </div>
+
+                        <hr class="context-divider admin-only" style="margin: 4px 0;">
+                        <button class="hd-item admin-only" id="menu-add-form">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            Thêm biểu mẫu
+                        </button>
+                                    
+                        <hr class="context-divider admin-only" style="margin: 4px 0;">
+                        <button class="hd-item admin-only" id="menu-manage-permissions" style="color: #059669;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                            Quản lý Phân quyền
+                        </button>
+                        <hr class="context-divider" style="margin: 4px 0;">
+                        <button class="hd-item" id="theme-toggle-menu">
+                            <svg id="theme-icon-menu" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                            </svg>
+                            <span id="theme-text-menu">Chế độ Tối</span>
+                        </button>
+
+                        <button class="hd-item" id="menu-logout" style="color: #dc2626;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                            <span>Đăng xuất</span>
+                        </button>
+                    </div>
+                </div>
+                <h2>KHO BIỂU MẪU</h2>
+            </div>
+            
+            <button class="btn-primary" id="btn-finish-action" style="display: none; padding: 6px 12px; font-size: 0.85rem; align-items: center; gap: 4px;" title="Hoàn tất thao tác">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Hoàn tất
+            </button>
+
+            <button class="btn-icon hide-on-mobile" id="collapse-sidebar-btn" title="Thu gọn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline></svg>
+            </button>
+            <button class="btn-icon mobile-header" style="display:none;" id="close-menu">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+
+        <div class="action-container">
+            <div class="search-wrapper">
+                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" id="search-input" class="search-input" placeholder="Tìm biểu mẫu...">
+                <button type="button" class="clear-search-btn" id="clear-search-btn" title="Xóa tìm kiếm">&times;</button>
+            </div>
+        </div>
+
+        <nav class="nav-menu" id="nav-menu">
+            <div id="no-result" class="no-result">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    <line x1="8" y1="11" x2="14" y2="11"></line>
+                </svg>
+                <p>Không tìm thấy dữ liệu<br><span style="font-size: 0.8em; color: #94a3b8;">Vui lòng thử từ khóa khác</span></p>
+            </div>
+            
+            <div id="skeleton-loader" class="skeleton-loader">
+                <div class="skeleton-block"></div>
+                <div class="skeleton-block"></div>
+                <div class="skeleton-block"></div>
+            </div>
+        </nav>
+    </aside>
+
+	<main class="preview-container">
+		<div class="breadcrumb-container" id="preview-breadcrumb" style="display: none;">
+			<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+			<span>Kho Biểu Mẫu</span>
+			<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+			<span id="bc-folder">Thư mục</span>
+			<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+			<span id="bc-form" class="breadcrumb-text">Biểu mẫu</span>
+		</div>
+        <div class="iframe-wrapper">
+            <div class="iframe-loading" id="iframe-loading">
+                <div class="spinner"></div>
+                <span style="color: #64748b; font-size: 0.9rem; font-weight: 500;">Đang tải dữ liệu...</span>
+            </div>
+            <iframe id="pdf-viewer" src="" title="Trình xem biểu mẫu"></iframe>
+        </div>
+    </main>
+
+    <div class="context-menu" id="form-context-menu">
+        <button class="context-menu-item" id="cm-open-new-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+            Mở sang tab mới
+        </button>
+        <button class="context-menu-item" id="cm-copy-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            Sao chép liên kết
+        </button>
+        <button class="context-menu-item download" id="cm-download-word-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Tải file Word
+        </button>
+        <hr class="context-divider admin-only">
+        <button class="context-menu-item admin-only" id="cm-edit-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+            Sửa biểu mẫu
+        </button>
+		<button class="context-menu-item admin-only" id="cm-lock-btn" style="color: #d97706;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            Khóa form (Chỉ Admin)
+        </button>
+        <button class="context-menu-item delete admin-only" id="cm-delete-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            Xóa biểu mẫu
+        </button>
+    </div>
+
+    <div class="context-menu" id="folder-context-menu">
+        <button class="context-menu-item pin admin-only" id="fcm-pin-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            <span>Ghim</span>
+        </button>
+        <button class="context-menu-item admin-only" id="fcm-edit-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+            Sửa thư mục
+        </button>
+		<hr class="context-divider admin-only">
+        <button class="context-menu-item admin-only" id="fcm-hide-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+            <span>Ẩn thư mục</span>
+        </button>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <div class="modal" id="form-modal">
+        <div class="modal-content" style="padding: 0; max-width: 540px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; border-radius: 12px; background: var(--bg-body); box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2);">
+            
+            <div class="modal-header" style="padding: 12px 16px; margin-bottom: 0; border-bottom: 1px solid var(--border); background: var(--bg-sidebar); flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; border-radius: 12px 12px 0 0;">
+                
+                <div id="modal-edit-title" style="display: none; font-size: 0.95rem; font-weight: 700; color: var(--text-main); align-items: center; gap: 6px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                    Cập nhật Biểu mẫu
+                </div>
+
+                <div id="form-tabs-container" style="display: flex; background: var(--bg-body); padding: 4px; border-radius: 8px; border: 1px solid var(--border);">
+                    <button type="button" id="tab-btn-single" style="padding: 6px 16px; font-size: 0.85rem; font-weight: 600; color: var(--primary); background: #ffffff; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: var(--shadow-sm); transition: all 0.2s;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg> Đơn lẻ
+                    </button>
+                    <button type="button" id="tab-btn-bulk" style="padding: 6px 16px; font-size: 0.85rem; font-weight: 500; color: var(--text-muted); background: transparent; border: 1px solid transparent; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg> Quét Drive
+                    </button>
+                </div>
+
+                <button type="button" class="btn-icon" id="close-modal-btn" style="padding: 6px; background: #f1f5f9; border-radius: 50%;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+            </div>
+
+            <div style="flex: 1; overflow: hidden; position: relative; background: var(--bg-body);">
+                
+                <form id="medical-form-data" style="display: flex; flex-direction: column; height: 100%; margin: 0;">
+                    <div style="flex: 1; overflow-y: auto; padding: 16px;" class="custom-scroll">
+                        
+                        <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+                            <div style="flex: 1.5; position: relative;">
+                                <span style="position: absolute; left: 10px; top: 9px; color: #94a3b8; pointer-events: none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></span>
+                                <input type="text" id="form-name" required placeholder="Tên biểu mẫu..." style="width: 100%; padding: 8px 10px 8px 34px; font-size: 0.85rem; border-radius: 6px; border: 1px solid var(--border); outline: none; background: #ffffff;">
+                            </div>
+                            <div style="flex: 1; position: relative;">
+                                <span style="position: absolute; left: 10px; top: 9px; color: #94a3b8; pointer-events: none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></span>
+                                <select id="form-folder" style="width: 100%; padding: 8px 10px 8px 34px; font-size: 0.85rem; border-radius: 6px; border: 1px solid var(--border); outline: none; background: #ffffff; cursor: pointer; appearance: none;">
+                                    <option value="">Chưa phân loại</option>
+                                </select>
+                                <span style="position: absolute; right: 10px; top: 11px; color: #94a3b8; pointer-events: none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+                            <div style="flex: 1; position: relative;">
+                                <span style="position: absolute; left: 10px; top: 9px; color: #94a3b8; pointer-events: none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></span>
+                                <input type="text" id="form-url" required placeholder="Link xem (Google Drive/PDF)..." style="width: 100%; padding: 8px 10px 8px 34px; font-size: 0.85rem; border-radius: 6px; border: 1px solid var(--border); outline: none; background: #ffffff;">
+                            </div>
+                            <div style="flex: 1; position: relative;">
+                                <span style="position: absolute; left: 10px; top: 9px; color: #94a3b8; pointer-events: none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg></span>
+                                <input type="text" id="form-word-url" placeholder="Link tải Word xuống..." style="width: 100%; padding: 8px 10px 8px 34px; font-size: 0.85rem; border-radius: 6px; border: 1px solid var(--border); outline: none; background: #ffffff;">
+                            </div>
+                        </div>
+
+                        <div class="admin-only" id="upload-drop-zone" title="Kéo thả hoặc Click để tải file" style="background: #ffffff; padding: 10px; border-radius: 6px; border: 1px dashed var(--primary); margin-bottom: 12px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: all 0.2s;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <div style="background: rgba(37,99,235,0.1); padding: 6px; border-radius: 6px;">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                                </div>
+                                <span style="color: var(--text-main); font-weight: 500; font-size: 0.85rem;" id="upload-status-text">Kéo thả file đính kèm vào đây...</span>
+                            </div>
+                            <input type="file" id="form-file-upload" accept=".pdf,.doc,.docx,.xls,.xlsx" style="display: none;">
+                        </div>
+                        <div id="upload-progress-bar" style="width: 100%; height: 4px; background: #cbd5e1; border-radius: 2px; margin-top: -6px; margin-bottom: 12px; display: none; overflow: hidden;">
+                            <div id="upload-progress-fill" style="height: 100%; width: 0%; background: #059669; transition: width 0.2s;"></div>
+                        </div>
+
+                        <div class="admin-only" style="background: #ffffff; border-radius: 6px; border: 1px solid var(--border); padding: 8px;">
+                            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                                <div style="flex: 1; position: relative;">
+                                    <span style="position: absolute; left: 8px; top: 6px; color: #94a3b8; pointer-events: none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></span>
+                                    <input type="text" id="form-search-user" placeholder="Phân quyền xem (Tìm tài khoản)..." style="width: 100%; padding: 4px 8px 4px 28px; font-size: 0.85rem; border-radius: 4px; border: 1px solid var(--border); outline: none; background: #f8fafc;">
+                                </div>
+                                <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 0.8rem; color: var(--text-main); font-weight: 500; background: rgba(37,99,235,0.05); padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(37,99,235,0.2);">
+                                    <input type="checkbox" id="form-select-all-users" style="margin: 0; width: 14px; height: 14px; accent-color: #2563eb;">
+                                    Tất cả
+                                </label>
+                            </div>
+                            
+                            <div id="form-allowed-users-list" class="custom-scroll" style="max-height: 110px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px;">
+                                <span style="font-size: 0.8rem; color: var(--text-muted); padding: 4px; text-align: center;">Đang tải...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer" style="padding: 12px 16px; margin-top: 0; border-top: 1px solid var(--border); background: var(--bg-sidebar); border-radius: 0 0 12px 12px; flex-shrink: 0; display: flex; justify-content: flex-end; gap: 10px;">
+                        <button type="button" class="btn-secondary cancel-modal-btn" style="padding: 8px 16px; font-size: 0.85rem; border-radius: 6px;">Hủy</button>
+                        <button type="submit" class="btn-primary" id="submit-modal-btn" style="padding: 8px 16px; font-size: 0.85rem; border-radius: 6px; display: flex; align-items: center; gap: 6px;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Lưu lại
+                        </button>
+                    </div>
+                </form>
+
+                <form id="bulk-form-data" style="display: none; flex-direction: column; height: 100%; margin: 0;">
+                    <div style="flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 16px;" class="custom-scroll">
+                        
+                        <div style="position: relative;">
+                            <span style="position: absolute; left: 10px; top: 9px; color: #94a3b8; pointer-events: none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></span>
+                            <input type="text" id="bulk-url" required placeholder="Link thư mục Google Drive..." style="width: 100%; padding: 8px 10px 8px 34px; font-size: 0.85rem; border-radius: 6px; border: 1px solid var(--border); outline: none; background: #ffffff;">
+                        </div>
+
+                        <div style="position: relative;">
+                            <span style="position: absolute; left: 10px; top: 9px; color: #94a3b8; pointer-events: none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></span>
+                            <select id="bulk-folder" style="width: 100%; padding: 8px 10px 8px 34px; font-size: 0.85rem; border-radius: 6px; border: 1px solid var(--border); outline: none; background: #ffffff; cursor: pointer; appearance: none;">
+                                <option value="">Tự động tạo theo tên Drive</option>
+                            </select>
+                            <span style="position: absolute; right: 10px; top: 11px; color: #94a3b8; pointer-events: none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span>
+                        </div>
+
+                        <div style="font-size: 0.8rem; color: #d97706; background: #fffbeb; padding: 10px; border-radius: 6px; border: 1px dashed #fcd34d; display: flex; gap: 8px;">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex-shrink: 0; margin-top: 2px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                            <span>Thư mục Drive phải được cấp quyền <b>"Bất kỳ ai có liên kết"</b> để xem được file.</span>
+                        </div>
+
+                    </div>
+                    <div class="modal-footer" style="padding: 12px 16px; margin-top: 0; border-top: 1px solid var(--border); background: var(--bg-sidebar); border-radius: 0 0 12px 12px; flex-shrink: 0; display: flex; justify-content: flex-end; gap: 10px;">
+                        <button type="button" class="btn-secondary cancel-modal-btn" style="padding: 8px 16px; font-size: 0.85rem; border-radius: 6px;">Hủy</button>
+                        <button type="submit" class="btn-primary" id="submit-bulk-modal-btn" style="padding: 8px 16px; font-size: 0.85rem; border-radius: 6px; background: #2563eb; border-color: #2563eb; display: flex; align-items: center; gap: 6px;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> Quét & Thêm
+                        </button>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+    </div>
+	<div class="modal" id="permission-modal">
+        <div class="modal-content" style="padding: 0; max-width: 850px; width: 95%; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; background: var(--bg-body); border-radius: 8px;">
+            
+            <div class="modal-header" style="padding: 1rem 1.25rem; margin-bottom: 0; border-bottom: 1px solid var(--border); background: var(--bg-sidebar); flex-shrink: 0;">
+                <h3 style="margin: 0; color: var(--text-main); font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                    Quản lý Phân quyền
+                </h3>
+                <button class="btn-icon" id="close-permission-modal" style="padding: 4px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+
+            <div style="display: flex; gap: 12px; padding: 12px; flex: 1; overflow: hidden;">
+                
+                <div style="flex: 1.2; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-sidebar); overflow: hidden;">
+                    <div style="padding: 8px 10px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid var(--border); background: rgba(37,99,235,0.02);">
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="text" id="perm-search-form" placeholder="🔍 Tìm biểu mẫu..." style="flex: 1; padding: 8px 10px; font-size: 0.85rem; border-radius: 6px; border: 1px solid var(--border); outline: none; background: var(--bg-body); color: var(--text-main);">
+                            <label style="font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; font-weight: 600; color: var(--text-main);">
+                                <input type="checkbox" id="perm-select-all-forms" style="margin:0; width:15px; height:15px; accent-color: #ef4444;"> Tất cả <span id="perm-form-count" style="font-weight:normal; color:var(--text-muted)">(0/0)</span>
+                            </label>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <select id="perm-filter-status" style="flex: 1; padding: 6px 8px; font-size: 0.8rem; border-radius: 6px; border: 1px solid var(--border); outline: none; background: var(--bg-body); color: var(--text-main);">
+                                <option value="all">Mọi trạng thái</option>
+                                <option value="public">Công khai</option>
+                                <option value="locked">Đã khóa</option>
+                                <option value="granted">Đã cấp quyền</option>
+                            </select>
+                            <select id="perm-filter-user" style="flex: 1; padding: 6px 8px; font-size: 0.8rem; border-radius: 6px; border: 1px solid var(--border); outline: none; background: var(--bg-body); color: var(--text-main);">
+                                <option value="all">Mọi tài khoản</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="perm-forms-list" class="custom-scroll" style="flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px;"></div>
+                    <div id="perm-form-empty" style="display:none; text-align:center; padding: 15px; color: var(--text-muted); font-size: 0.85rem; font-style: italic;">Không có dữ liệu.</div>
+                </div>
+
+                <div style="flex: 1; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-sidebar); overflow: hidden;">
+                    <div style="padding: 8px 10px; display: flex; gap: 8px; align-items: center; border-bottom: 1px solid var(--border); background: rgba(37,99,235,0.02);">
+                        <input type="text" id="perm-search-user" placeholder="🔍 Tìm tài khoản..." style="flex: 1; padding: 8px 10px; font-size: 0.85rem; border-radius: 6px; border: 1px solid var(--border); outline: none; background: var(--bg-body); color: var(--text-main);">
+                        <label style="font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; font-weight: 600; color: var(--text-main);">
+                            <input type="checkbox" id="perm-select-all-users" style="margin:0; width:15px; height:15px; accent-color: #2563eb;"> Tất cả <span id="perm-user-count" style="font-weight:normal; color:var(--text-muted)">(0/0)</span>
+                        </label>
+                    </div>
+                    <div id="perm-users-list" class="custom-scroll" style="flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px;"></div>
+                    <div id="perm-user-empty" style="display:none; text-align:center; padding: 15px; color: var(--text-muted); font-size: 0.85rem; font-style: italic;">Không có tài khoản.</div>
+                </div>
+
+            </div>
+
+            <div class="modal-footer" style="padding: 12px 1.25rem; margin-top: 0; border-top: 1px solid var(--border); background: var(--bg-sidebar); flex-shrink: 0; display: flex; justify-content: flex-end; gap: 10px; border-radius: 0 0 8px 8px;">
+                <button id="btn-perm-reset" class="btn-secondary" style="padding: 8px 14px; font-size: 0.85rem; display: flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 6px;" title="Mở khóa (Công khai)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M2 12h4l2.251-4.502a1 1 0 0 1 1.795.002L13.996 16.5a1 1 0 0 0 1.792 0L18 12h4"></path></svg> Mở Công khai
+                </button>
+                <button id="btn-perm-lock" class="btn-primary" style="padding: 8px 14px; font-size: 0.85rem; background: #d97706; border-color: #d97706; border-radius: 6px; display: flex; align-items: center; gap: 6px;" title="Khóa biểu mẫu (Chỉ Admin)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg> Khóa biểu mẫu
+                </button>
+                <button id="btn-perm-apply" class="btn-primary" style="padding: 8px 14px; font-size: 0.85rem; background: #059669; border-color: #059669; border-radius: 6px; display: flex; align-items: center; gap: 6px;" title="Cấp quyền cho các tài khoản đã tick">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> Áp dụng phân quyền
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="folder-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="folder-modal-title">Thêm thư mục mới</h3>
+                <button class="btn-icon" id="close-folder-modal-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+            </div>
+            <form id="folder-form" onsubmit="event.preventDefault();">
+                <div class="form-group">
+                    <label for="folder-name">Tên thư mục</label>
+                    <input type="text" id="folder-name" required placeholder="Nhập tên thư mục...">
+                </div>
+                <div class="form-group" style="flex-direction: row; align-items: center; justify-content: space-between;">
+                    <label for="folder-color">Màu thư mục</label>
+                    <input type="color" id="folder-color" value="#2563eb">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" id="cancel-folder-modal-btn">Hủy</button>
+                    <button type="submit" class="btn-primary" id="submit-folder-modal-btn">Thêm mới</button>
+                </div>
+            </form>
+        </div>
+    </div>
+	<div class="modal" id="confirm-modal">
+		<div class="modal-content" style="max-width: 380px;">
+			<div class="modal-header">
+				<h3>Xác nhận thao tác</h3>
+				<button class="btn-icon" id="close-confirm-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+			</div>
+			<div style="margin-bottom: 1.5rem; font-size: 0.95rem; line-height: 1.5; color: var(--text-main);" id="confirm-message">
+				</div>
+			<div class="modal-footer">
+				<button type="button" class="btn-secondary" id="cancel-confirm-btn">Hủy</button>
+				<button type="button" class="btn-primary" id="submit-confirm-btn" style="background-color: #ef4444; color: white;">Đồng ý</button>
+			</div>
+		</div>
+	</div>
+	    
+    <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+    import { getDatabase, ref, get, push, set, remove, update } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+	
+	if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(registration => {
+                    console.log('ServiceWorker đã đăng ký thành công: ', registration.scope);
+                })
+                .catch(err => {
+                    console.log('Đăng ký ServiceWorker thất bại: ', err);
+                });
+        });
+    }
+	
+    const firebaseConfig = {
+        apiKey: "AIzaSyAsi7x-qWbKFsIcl1Rilo_D9KR5Ecj0zt8",
+        authDomain: "quanlybieumau.firebaseapp.com",
+        databaseURL: "https://quanlybieumau-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "quanlybieumau",
+        storageBucket: "quanlybieumau.firebasestorage.app",
+        messagingSenderId: "664532049026",
+        appId: "1:664532049026:web:e5461d295a4e6cd503e89b"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const auth = getAuth(app);
+
+    let currentUserRole = 'guest';
+
+    const debounce = (func, delay) => {
+        let timeoutId;
+        return (...args) => {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => func.apply(null, args), delay);
+        };
+    };
+    const escapeHTML = (str) => str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
+    
+    function clearCaches() {
+        sessionStorage.removeItem('medical_forms_cache');
+        sessionStorage.removeItem('medical_folders_cache');
+    }
+
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        const icon = type === 'success' 
+            ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`
+            : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`;
+        toast.innerHTML = `${icon}<p>${message}</p>`;
+        container.appendChild(toast);
+        setTimeout(() => toast.classList.add('show'), 10);
+        setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 3000);
+    }
+
+    function getWordDownloadUrl(pdfUrl, customWordUrl) {
+        if (customWordUrl) return customWordUrl;
+        if (pdfUrl && pdfUrl.includes('docs.google.com/document/d/')) {
+            const match = pdfUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+            if (match && match[1]) return `https://docs.google.com/document/d/${match[1]}/export?format=docx`;
+        }
+        return null;
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        const togglePasswordBtn = document.getElementById('toggle-password-btn');
+        const passwordInput = document.getElementById('login-password');
+        const eyeIcon = document.getElementById('eye-icon');
+
+        // --- TỰ ĐỘNG ĐIỀN TÀI KHOẢN/MẬT KHẨU NẾU ĐÃ GHI NHỚ ---
+        let isAutoFilled = false;
+
+        function applyAutoFill() {
+            const savedEmail = localStorage.getItem('saved_login_email');
+            const savedPassword = localStorage.getItem('saved_login_password');
+            
+            if (savedEmail && savedPassword) {
+                document.getElementById('login-email').value = savedEmail;
+                passwordInput.value = savedPassword;
+                document.getElementById('remember-me').checked = true;
+                isAutoFilled = true;
+                if (togglePasswordBtn) togglePasswordBtn.style.display = 'none';
+            } else {
+                isAutoFilled = false;
+                if (togglePasswordBtn) togglePasswordBtn.style.display = 'none';
+            }
+        }
+
+        // Gọi lần đầu khi vừa tải trang (F5)
+        applyAutoFill();
+
+        if (passwordInput && togglePasswordBtn) {
+            // 1. NGĂN CHẶN LỘ MẬT KHẨU CŨ (Tự động xóa sạch nếu gõ thêm phím)
+            passwordInput.addEventListener('keydown', (e) => {
+                // Bỏ qua các phím điều hướng, tab, enter...
+                const ignoredKeys = ['Tab', 'Enter', 'Shift', 'Control', 'Alt', 'Meta', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
+                if (isAutoFilled && !ignoredKeys.includes(e.key)) {
+                    passwordInput.value = ''; // Xóa sạch mật khẩu lưu tự động
+                    isAutoFilled = false;     // Đánh dấu là đã chuyển sang gõ tay mới
+                }
+            });
+
+            // 2. LOGIC HIỂN THỊ NÚT CON MẮT
+            passwordInput.addEventListener('input', () => {
+                // Nếu người dùng xóa sạch ô, reset lại trạng thái
+                if (passwordInput.value.length === 0) {
+                    isAutoFilled = false;
+                }
+
+                // Nếu VẪN ĐANG LÀ mật khẩu tự động điền (paste bằng chuột...) -> KHÔNG BAO GIỜ hiện mắt
+                if (isAutoFilled) {
+                    togglePasswordBtn.style.display = 'none';
+                } 
+                // Chỉ hiện mắt đối với mật khẩu gõ tay mới hoàn toàn
+                else if (passwordInput.value.length > 0) {
+                    togglePasswordBtn.style.display = 'flex';
+                } else {
+                    togglePasswordBtn.style.display = 'none';
+                }
+            });
+
+            // 3. LOGIC CLICK ẨN/HIỆN MẬT KHẨU
+            togglePasswordBtn.addEventListener('click', () => {
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+                
+                if (type === 'text') {
+                    eyeIcon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
+                } else {
+                    eyeIcon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+                }
+            });
+        }
+        // --- XỬ LÝ ĐĂNG NHẬP (AUTHENTICATION) ---
+		const loginScreen = document.getElementById('login-screen');
+		const loginModalContent = document.getElementById('login-modal-content');
+		const initialLoader = document.getElementById('initial-loader');
+		const loginForm = document.getElementById('login-form');
+		const loginBtn = document.getElementById('login-btn');
+
+		onAuthStateChanged(auth, async (user) => {
+			if (user) {
+				// ĐÃ ĐĂNG NHẬP: Thêm class để hiện giao diện chính, ẩn màn hình đăng nhập
+				document.body.classList.add('is-logged-in');
+				loginScreen.style.display = 'none';
+				
+				let displayUserName = user.email.split('@')[0];
+				
+				try {
+					const userRef = ref(db, `users/${user.uid}`);
+					const snapshot = await get(userRef);
+					
+					if (snapshot.exists()) {
+						const userData = snapshot.val();
+						if (userData.role === 'admin') {
+							currentUserRole = 'admin';
+							document.body.classList.add('is-admin');
+						} else {
+							currentUserRole = 'guest';
+							document.body.classList.remove('is-admin');
+						}
+						if (userData.name) displayUserName = userData.name;
+					} else {
+						currentUserRole = 'guest';
+						document.body.classList.remove('is-admin');
+						await set(ref(db, `users/${user.uid}`), { email: user.email, role: 'guest' });
+					}
+				} catch (error) {
+					console.error("Lỗi khi lấy phân quyền:", error);
+					currentUserRole = 'guest';
+					document.body.classList.remove('is-admin');
+				}
+				
+				const firstLetter = displayUserName.charAt(0).toUpperCase();
+				document.getElementById('user-avatar').textContent = firstLetter;
+				const userNameTextEl = document.getElementById('user-name');
+					if (userNameTextEl) {
+						userNameTextEl.textContent = displayUserName;
+					}
+				
+				await loadAndRenderForms();
+			} else {
+				// CHƯA ĐĂNG NHẬP: Ẩn giao diện chính, ẩn loader, hiện form đăng nhập
+				document.body.classList.remove('is-logged-in');
+				document.body.classList.remove('is-admin');
+				
+				loginScreen.style.display = 'flex';
+				initialLoader.style.display = 'none'; // Tắt vòng xoay loading
+				loginModalContent.style.display = 'block'; // Hiện form điền tài khoản
+
+				// THÊM 2 DÒNG NÀY ĐỂ KHÔI PHỤC TRẠNG THÁI NÚT BẤM SAU KHI ĐĂNG XUẤT
+				loginBtn.textContent = 'Đăng nhập';
+				loginBtn.disabled = false;
+				applyAutoFill();
+			}
+		});
+
+		loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            let email = document.getElementById('login-email').value.trim();
+            const pass = document.getElementById('login-password').value;
+            const isRememberMe = document.getElementById('remember-me').checked; 
+            
+            if (!email.includes('@')) {
+                email += '@bieumau.com'; 
+            }
+            
+            const originalText = loginBtn.textContent;
+            loginBtn.innerHTML = '<div class="spinner" style="width: 18px; height: 18px; border-width: 2px; border-color: rgba(255,255,255,0.3); border-top-color: #fff; display: inline-block; vertical-align: middle; margin-right: 8px;"></div> Đang xử lý...';
+            loginBtn.disabled = true;
+
+            try {
+                const persistenceType = isRememberMe ? browserLocalPersistence : browserSessionPersistence;
+                await setPersistence(auth, persistenceType);
+
+                await signInWithEmailAndPassword(auth, email, pass);
+                
+                if (isRememberMe) {
+                    localStorage.setItem('saved_login_email', document.getElementById('login-email').value.trim());
+                    localStorage.setItem('saved_login_password', pass);
+                } else {
+                    localStorage.removeItem('saved_login_email');
+                    localStorage.removeItem('saved_login_password');
+                }
+                loginForm.reset();
+                showToast('Đăng nhập thành công!');
+
+                loginBtn.textContent = 'Đăng nhập';
+                loginBtn.disabled = false;
+                
+            } catch (error) {
+                // CHỈ HIỆN TOAST THÔNG BÁO LỖI
+                showToast('Sai tài khoản hoặc mật khẩu. Vui lòng kiểm tra lại!', 'error');
+                
+                loginBtn.textContent = originalText;
+                loginBtn.disabled = false;
+            }
+        });
+
+        document.getElementById('menu-logout').addEventListener('click', () => {
+            signOut(auth).then(() => {
+                showToast('Đã đăng xuất');
+                document.getElementById('header-dropdown').classList.remove('show');
+                viewer.src = '';
+                document.getElementById('preview-breadcrumb').style.display = 'none';
+                navMenu.querySelectorAll('.folder-group, .nav-item').forEach(el => el.remove());
+                clearCaches();
+            });
+        });
+        // ----------------------------------------
+
+        if (localStorage.getItem('sidebar-collapsed') === 'true') document.body.classList.add('sidebar-collapsed');
+
+        const navMenu = document.getElementById('nav-menu');
+        const viewer = document.getElementById('pdf-viewer');
+        const iframeLoading = document.getElementById('iframe-loading');
+        const searchInput = document.getElementById('search-input');
+        const clearSearchBtn = document.getElementById('clear-search-btn');
+        const noResultMsg = document.getElementById('no-result');
+        const skeletonLoader = document.getElementById('skeleton-loader');
+        
+        const btnHeaderAdd = document.getElementById('btn-header-add');
+        const headerDropdown = document.getElementById('header-dropdown');
+        const formContextMenu = document.getElementById('form-context-menu');
+        const folderContextMenu = document.getElementById('folder-context-menu');
+        
+        const formModal = document.getElementById('form-modal');
+		// --- XỬ LÝ CHUYỂN TAB (ĐƠN LẺ / HÀNG LOẠT) ---
+        const tabSingleBtn = document.getElementById('tab-btn-single');
+        const tabBulkBtn = document.getElementById('tab-btn-bulk');
+        const formSingleContent = document.getElementById('medical-form-data');
+        const formBulkContent = document.getElementById('bulk-form-data');
+        const formTabsContainer = document.getElementById('form-tabs-container');
+
+        function switchFormTab(tabName) {
+            if (tabName === 'single') {
+                tabSingleBtn.style.color = 'var(--primary)';
+                tabSingleBtn.style.backgroundColor = '#ffffff';
+                tabSingleBtn.style.borderColor = 'var(--border)';
+                tabSingleBtn.style.boxShadow = 'var(--shadow-sm)';
+                
+                tabBulkBtn.style.color = 'var(--text-muted)';
+                tabBulkBtn.style.backgroundColor = 'transparent';
+                tabBulkBtn.style.borderColor = 'transparent';
+                tabBulkBtn.style.boxShadow = 'none';
+                
+                formSingleContent.style.display = 'flex';
+                formBulkContent.style.display = 'none';
+            } else {
+                tabBulkBtn.style.color = 'var(--primary)';
+                tabBulkBtn.style.backgroundColor = '#ffffff';
+                tabBulkBtn.style.borderColor = 'var(--border)';
+                tabBulkBtn.style.boxShadow = 'var(--shadow-sm)';
+                
+                tabSingleBtn.style.color = 'var(--text-muted)';
+                tabSingleBtn.style.backgroundColor = 'transparent';
+                tabSingleBtn.style.borderColor = 'transparent';
+                tabSingleBtn.style.boxShadow = 'none';
+                
+                formBulkContent.style.display = 'flex';
+                formSingleContent.style.display = 'none';
+            }
+        }
+
+        tabSingleBtn.addEventListener('click', () => switchFormTab('single'));
+        tabBulkBtn.addEventListener('click', () => switchFormTab('bulk'));
+        
+        // Gắn sự kiện đóng cho tất cả các nút Hủy bên trong form-modal
+        document.querySelectorAll('.cancel-modal-btn').forEach(btn => {
+            btn.addEventListener('click', () => toggleModal(formModal, false));
+        });
+        const folderModal = document.getElementById('folder-modal');
+        const medicalForm = document.getElementById('medical-form-data');
+        const folderForm = document.getElementById('folder-form');
+		const bulkModal = document.getElementById('bulk-modal');
+        const bulkForm = document.getElementById('bulk-form-data');
+		
+		// --- Dark Mode Logic ---
+        const themeToggleMenu = document.getElementById('theme-toggle-menu');
+        const themeIconMenu = document.getElementById('theme-icon-menu');
+        const themeTextMenu = document.getElementById('theme-text-menu');
+        const isDarkMode = localStorage.getItem('dark-mode') === 'true';
+
+        if (isDarkMode) document.body.classList.add('dark-theme');
+        updateThemeUI(isDarkMode);
+
+        themeToggleMenu.addEventListener('click', () => {
+            const isDark = document.body.classList.toggle('dark-theme');
+            localStorage.setItem('dark-mode', isDark);
+            updateThemeUI(isDark);
+            document.getElementById('header-dropdown').classList.remove('show');
+        });
+
+        function updateThemeUI(isDark) {
+            if (isDark) {
+                themeIconMenu.innerHTML = `<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>`;
+                themeTextMenu.textContent = "Chế độ Sáng";
+            } else {
+                themeIconMenu.innerHTML = `<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>`;
+                themeTextMenu.textContent = "Chế độ Tối";
+            }
+        }
+
+		function updateBreadcrumbs(folderName, formName) {
+			const bcContainer = document.getElementById('preview-breadcrumb');
+			if(formName) {
+				bcContainer.style.display = 'flex';
+				document.getElementById('bc-folder').textContent = folderName || 'Chưa phân loại';
+				document.getElementById('bc-form').textContent = formName;
+			} else {
+				bcContainer.style.display = 'none';
+			}
+		}
+
+		// --- Custom Confirm Logic ---
+		const confirmModal = document.getElementById('confirm-modal');
+		const confirmMsg = document.getElementById('confirm-message');
+		let confirmCallback = null;
+
+		function showConfirmDialog(message, callback) {
+			confirmMsg.innerHTML = message; 
+			confirmCallback = callback;
+			confirmModal.classList.add('show');
+		}
+
+		function closeConfirmDialog() {
+			confirmModal.classList.remove('show');
+			confirmCallback = null;
+		}
+
+		document.getElementById('close-confirm-btn').addEventListener('click', closeConfirmDialog);
+		document.getElementById('cancel-confirm-btn').addEventListener('click', closeConfirmDialog);
+		document.getElementById('submit-confirm-btn').addEventListener('click', () => {
+			if (confirmCallback) confirmCallback();
+			closeConfirmDialog();
+		});
+
+		
+        let formElements = []; 
+        let globalFormsList = []; 
+        let editingFormId = null; 
+        let editingFolderId = null;
+        let editingFolderOldName = "";
+        let currentFormContext = null; 
+        let currentFolderContext = null; 
+
+        viewer.onload = () => { iframeLoading.style.opacity = '0'; viewer.classList.add('loaded'); };
+        function setPdfSource(url) { iframeLoading.style.opacity = '1'; viewer.classList.remove('loaded'); viewer.src = `${url}#navpanes=0`; }
+		
+        let isShowHiddenFolders = localStorage.getItem('show-hidden-folders') === 'true';
+        if (isShowHiddenFolders) {
+            document.getElementById('text-toggle-hidden').textContent = "Giấu thư mục ẩn";
+            document.getElementById('icon-toggle-hidden').innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+        }
+
+        async function fetchFormsData() {
+            const cacheKey = 'medical_forms_cache';
+            const cachedData = sessionStorage.getItem(cacheKey);
+            if (cachedData) return JSON.parse(cachedData);
+            const snapshot = await get(ref(db, 'medical_forms'));
+            if (snapshot.exists()) {
+                const data = Object.keys(snapshot.val()).map(key => ({ id: key, ...snapshot.val()[key] })).sort((a, b) => (a.order || 0) - (b.order || 0));
+                sessionStorage.setItem(cacheKey, JSON.stringify(data)); return data;
+            }
+            return [];
+        }
+
+        async function fetchFoldersData() {
+            const cacheKey = 'medical_folders_cache';
+            const cachedData = sessionStorage.getItem(cacheKey);
+            if (cachedData) return JSON.parse(cachedData);
+            const snapshot = await get(ref(db, 'medical_folders'));
+            if (snapshot.exists()) {
+                const data = Object.keys(snapshot.val()).map(key => ({ id: key, ...snapshot.val()[key] }));
+                sessionStorage.setItem(cacheKey, JSON.stringify(data)); return data;
+            }
+            return [];
+        }
+		// --- HÀM TẢI DÂN SÁCH TÀI KHOẢN VÀ HIỂN THỊ CHECKBOX ---
+        async function renderUserCheckboxes(allowedUsersStr = "") {
+            const container = document.getElementById('form-allowed-users-list');
+            container.innerHTML = '<span style="font-size: 0.75rem; color: var(--text-muted); padding: 4px; text-align: center;">Đang tải...</span>';
+            
+            try {
+                const snapshot = await get(ref(db, 'users'));
+                if (!snapshot.exists()) {
+                    container.innerHTML = '<span style="font-size: 0.75rem; color: var(--text-muted); padding: 4px; text-align: center;">Chưa có tài khoản</span>';
+                    return;
+                }
+                
+                const usersData = snapshot.val();
+                const allowedArray = allowedUsersStr ? allowedUsersStr.split(',').map(e => e.trim().toLowerCase()) : [];
+                
+                container.innerHTML = ''; 
+                
+                Object.keys(usersData).forEach(uid => {
+                    const u = usersData[uid];
+                    if (!u.email || u.role === 'admin') return;
+                    
+                    const emailLower = u.email.trim().toLowerCase();
+                    const isChecked = allowedArray.includes(emailLower);
+                    
+                    // Cắt đuôi email cho giao diện Form
+                    const shortEmail = u.email.split('@')[0];
+                    const displayName = u.name ? `${u.name} (${shortEmail})` : shortEmail;
+                    
+                    const labelRow = document.createElement('label');
+                    labelRow.className = 'perm-item-hover';
+                    labelRow.style.display = 'flex';
+                    labelRow.style.alignItems = 'center';
+                    labelRow.style.gap = '8px'; // Mở rộng gap
+                    labelRow.style.cursor = 'pointer';
+                    labelRow.style.fontSize = '0.85rem'; // Tăng lên 0.85rem
+                    labelRow.style.color = 'var(--text-main)';
+                    labelRow.style.padding = '6px 8px'; // Tăng padding
+                    labelRow.style.borderRadius = '4px';
+                    labelRow.style.userSelect = 'none';
+                    labelRow.style.transition = 'all 0.15s';
+                    
+                    labelRow.innerHTML = `
+                        <input type="checkbox" value="${escapeHTML(u.email)}" ${isChecked ? 'checked' : ''} style="margin: 0; width: 15px; height: 15px; cursor: pointer; accent-color: #2563eb; flex-shrink: 0;">
+                        <span style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(displayName)}">${escapeHTML(displayName)}</span>
+                    `;
+                    container.appendChild(labelRow);
+                });
+                
+                if (container.children.length === 0) {
+                    container.innerHTML = '<span style="font-size: 0.75rem; color: var(--text-muted); padding: 4px; text-align: center;">Không có dữ liệu</span>';
+                }
+            } catch (err) {
+                console.error("Lỗi:", err);
+                container.innerHTML = '<span style="font-size: 0.75rem; color: #ef4444; padding: 4px; text-align: center;">Lỗi tải danh sách</span>';
+            }
+        }
+        async function loadAndRenderForms() {
+            navMenu.querySelectorAll('.folder-group, .nav-item').forEach(el => el.remove());
+            formElements = [];
+            skeletonLoader.style.display = 'flex';
+            noResultMsg.style.display = 'none';
+
+            try {
+                let [formsList, foldersList] = await Promise.all([fetchFormsData(), fetchFoldersData()]);
+                
+                // --- BẮT ĐẦU ĐOẠN CODE LỌC BIỂU MẪU THEO QUYỀN TRUY CẬP ---
+                if (currentUserRole !== 'admin') {
+                    const currentUserEmail = auth.currentUser ? auth.currentUser.email.toLowerCase() : '';
+                    
+                    formsList = formsList.filter(f => {
+                        // Nếu admin để trống mục phân quyền, mặc định là ai cũng có thể xem (Public)
+                        if (!f.allowedUsers || f.allowedUsers.trim() === '') return true;
+                        
+                        // Chuyển chuỗi email phân quyền thành mảng chữ thường để kiểm tra chính xác
+                        const allowedArray = f.allowedUsers.split(',').map(e => e.trim().toLowerCase());
+                        return allowedArray.includes(currentUserEmail);
+                    });
+                }
+                // --- KẾT THÚC ĐOẠN CODE LỌC ---
+                globalFormsList = formsList;
+                skeletonLoader.style.display = 'none';
+
+                const groupedForms = {};
+                const folderDataMap = {};
+
+                foldersList.forEach(folder => {
+                    if (folder.name) {
+                        const name = folder.name.trim();
+                        folderDataMap[name] = folder; 
+                        groupedForms[name] = [];
+                    }
+                });
+
+                if (formsList.length > 0) {
+                    const currentSrc = viewer.src;
+                    let keepCurrentSrc = false;
+                    
+                    formsList.forEach(f => {
+                        if (currentSrc && currentSrc.includes(f.url)) keepCurrentSrc = true;
+                        const folderName = f.folder ? f.folder.trim() : 'Chưa phân loại';
+                        
+                        if (folderName !== 'Chưa phân loại' && !groupedForms[folderName]) {
+                            groupedForms[folderName] = [];
+                            folderDataMap[folderName] = { id: null, name: folderName, order: 9999, isPinned: false, color: null };
+                        }
+                        
+                        if (!groupedForms[folderName] && folderName === 'Chưa phân loại') groupedForms[folderName] = [];
+                        groupedForms[folderName].push(f);
+                    });
+                    if (!keepCurrentSrc) setPdfSource(formsList[0].url);
+					updateBreadcrumbs(formsList[0].folder, formsList[0].name)
+                } else if (foldersList.length === 0) {
+                    noResultMsg.style.display = 'flex'; viewer.src = ''; iframeLoading.style.opacity = '0'; return;
+                }
+
+                const formFolderSelect = document.getElementById('form-folder');
+                const bulkFolderSelect = document.getElementById('bulk-folder');
+                
+                formFolderSelect.innerHTML = '<option value="">Chưa phân loại</option>';
+                bulkFolderSelect.innerHTML = '<option value="">Tự động lấy tên thư mục Drive (Mặc định)</option>';
+                
+                Object.keys(folderDataMap).sort().forEach(folder => {
+                    const fData = folderDataMap[folder];
+                    if (folder !== 'Chưa phân loại') {
+                        if (fData.isHidden && !isShowHiddenFolders) return; 
+
+                        const option1 = document.createElement('option'); 
+                        option1.value = folder; option1.textContent = folder; 
+                        formFolderSelect.appendChild(option1);
+                        
+                        if (bulkFolderSelect) {
+                            const option2 = document.createElement('option'); 
+                            option2.value = folder; option2.textContent = folder; 
+                            bulkFolderSelect.appendChild(option2);
+                        }
+                    }
+                });
+
+                const sortedFolders = Object.keys(groupedForms).sort((a, b) => {
+                    if (a === 'Chưa phân loại') return 1; if (b === 'Chưa phân loại') return -1;
+                    const fA = folderDataMap[a]; const fB = folderDataMap[b];
+                    if (fA.isPinned !== fB.isPinned) return fA.isPinned ? -1 : 1;
+                    if (fA.order !== fB.order) return (fA.order || 999) - (fB.order || 999);
+                    return a.localeCompare(b);
+                });
+
+                const fragment = document.createDocumentFragment();
+
+                sortedFolders.forEach(folderName => {
+                    if (folderName === 'Chưa phân loại' && groupedForms[folderName].length === 0) return;
+					if (currentUserRole !== 'admin' && groupedForms[folderName].length === 0) return;
+
+                    const fData = folderDataMap[folderName];
+					const isHidden = (fData && fData.isHidden);
+					if (isHidden && !isShowHiddenFolders) return;
+                    
+                    const folderId = fData ? fData.id : null;
+                    const folderColor = (fData && fData.color) ? fData.color : null;
+                    const isPinned = (fData && fData.isPinned);
+					const isCollapsed = (fData && fData.isCollapsed) || false;
+					
+                    const folderGroup = document.createElement('div');
+                    folderGroup.className = 'folder-group';
+					if (isHidden) folderGroup.classList.add('is-hidden-folder');
+                    folderGroup.setAttribute('data-folder', folderName);
+                    if (folderId) folderGroup.setAttribute('data-folder-id', folderId);
+                    
+                    if (folderColor && folderName !== 'Chưa phân loại') {
+                        folderGroup.style.setProperty('--folder-color', folderColor);
+                    }
+
+                    let visualIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>`;
+                    if (folderName === 'Chưa phân loại') {
+                        visualIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line></svg>`;
+                    } else if (folderColor) {
+                        visualIcon = `<div class="color-dot" style="background-color: ${folderColor}; box-shadow: 0 0 0 1px rgba(0,0,0,0.05);"></div>`;
+                    }
+
+                    const folderHeader = document.createElement('div');
+                    folderHeader.className = `folder-header ${isCollapsed ? 'collapsed' : ''}`;
+                    folderHeader.innerHTML = `
+                        <div style="display:flex; align-items:center; gap:8px; flex: 1;">
+                            ${folderName !== 'Chưa phân loại' ? `
+                            <div class="folder-grip admin-only" title="Kéo thả thư mục">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="1.5"></circle><circle cx="9" cy="5" r="1.5"></circle><circle cx="9" cy="19" r="1.5"></circle><circle cx="15" cy="12" r="1.5"></circle><circle cx="15" cy="5" r="1.5"></circle><circle cx="15" cy="19" r="1.5"></circle></svg>
+                            </div>` : `<div class="folder-grip-placeholder" style="width:14px; display:none;"></div>`}
+                            ${visualIcon}
+                            <span style="max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHTML(folderName)}</span>
+                            ${isPinned ? `<svg class="pin-icon" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>` : ''}
+                        </div>
+                        <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        ${folderName !== 'Chưa phân loại' ? `
+                        <div class="folder-delete-btn admin-only" title="Xóa thư mục">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </div>` : ''}
+                    `;
+                    
+                    const folderContent = document.createElement('div');
+                    folderContent.className = `folder-content ${isCollapsed ? 'collapsed' : ''}`;
+                    
+                    folderHeader.addEventListener('click', async (e) => {
+                        if (e.target.closest('.folder-grip')) return; 
+                        
+                        const delBtn = e.target.closest('.folder-delete-btn');
+                        if (delBtn) {
+                            if (currentUserRole !== 'admin') return;
+                            showConfirmDialog(`Bạn có chắc chắn muốn xóa thư mục <b>"${folderName}"</b>?<br><span style="font-size:0.85em; color: var(--text-muted);">(Các biểu mẫu bên trong sẽ chuyển về 'Chưa phân loại')</span>`, async () => {
+								try {
+									const updates = {};
+									updates[`medical_folders/${folderId}`] = null;
+									globalFormsList.forEach(form => {
+										if (form.folder === folderName) updates[`medical_forms/${form.id}/folder`] = "";
+									});
+									await update(ref(db), updates);
+									clearCaches(); 
+									showToast('Đã xóa thư mục!'); 
+									await loadAndRenderForms();
+								} catch (err) { showToast("Lỗi xóa: " + err.message, 'error'); }
+							});
+                            return;
+                        }
+
+                        const isCurrentCollapsed = folderHeader.classList.toggle('collapsed');
+                        folderContent.classList.toggle('collapsed');
+                        
+                        // Chỉ lưu trạng thái đóng/mở lên DB nếu là admin, user thường chỉ đóng/mở cục bộ
+                        if (folderId && currentUserRole === 'admin') {
+                            try {
+                                await update(ref(db, `medical_folders/${folderId}`), { isCollapsed: isCurrentCollapsed });
+                                clearCaches();
+                            } catch (error) { console.error("Lỗi:", error); }
+                        }
+                    });
+
+                    groupedForms[folderName].forEach((form) => {
+                        const itemDiv = document.createElement('div');
+                        itemDiv.className = 'nav-item';
+                        
+                        const downloadUrl = getWordDownloadUrl(form.url, form.wordUrl);
+                        const safeName = escapeHTML(form.name);
+
+                        itemDiv.setAttribute('data-id', form.id);
+                        itemDiv.setAttribute('data-name', form.name);
+                        itemDiv.setAttribute('data-folder', form.folder || '');
+                        itemDiv.setAttribute('data-safe-name', safeName);
+                        itemDiv.setAttribute('data-url', form.url);
+                        itemDiv.setAttribute('data-word-url', form.wordUrl || ''); 
+                        itemDiv.setAttribute('data-download-url', downloadUrl || ''); 
+						itemDiv.setAttribute('data-allowed-users', form.allowedUsers || '');
+                        
+                        const isMainActive = viewer.src.includes(form.url);
+
+                        // 1. KIỂM TRA ĐỊNH DẠNG FILE (ICON)
+                        let typeIcon = `<svg class="icon-doc" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>`; // Mặc định
+                        if (form.wordUrl || (form.url && form.url.includes('document'))) {
+                            typeIcon = `<svg class="icon-doc" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M9 15.5l1.5 1.5 2.5-3"></path></svg>`; // Word (Xanh)
+                        } else if (form.url && (form.url.includes('drive') || form.url.includes('.pdf'))) {
+                            typeIcon = `<svg class="icon-doc" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M10 12v6"></path><path d="M10 12h2a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-2"></path></svg>`; // PDF (Đỏ)
+                        }
+
+                        // 2. KIỂM TRA PHÂN QUYỀN (BADGE) - THÊM class "admin-only" để ẩn với Guest
+                        let statusHtml = '';
+						if (!form.allowedUsers || form.allowedUsers.trim() === '') {
+							statusHtml = `<span class="form-status-badge public admin-only" title="Công khai"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg></span>`;
+						} else if (form.allowedUsers === 'admin_only') {
+							statusHtml = `<span class="form-status-badge locked admin-only" title="Chỉ Admin"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></span>`;
+						} else {
+							// Xử lý chuỗi email để lấy phần tên hiển thị gọn gàng trên Tooltip
+							const shortAllowedUsers = form.allowedUsers.split(',').map(e => e.trim().split('@')[0]).join(', ');
+							const tooltipText = `Đã cấp quyền cho: ${escapeHTML(shortAllowedUsers)}`;
+							
+							statusHtml = `<span class="form-status-badge granted admin-only" title="${tooltipText}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></span>`;
+						}
+
+                        // 3. XUẤT HTML (ĐÃ BỎ NÚT HOVER)
+                        itemDiv.innerHTML = `
+                            <button class="tab-btn ${isMainActive ? 'active' : ''}" data-src="${form.url}">
+                                ${typeIcon}
+                                <span class="tab-btn-text-wrap" title="${safeName}">
+                                    <span class="tab-btn-name">${safeName}</span>
+                                    ${statusHtml}
+                                </span>
+                            </button>
+                            <div class="item-actions admin-only">
+                                <div class="action-icon-btn grip" title="Kéo thả">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>
+                                </div>
+                            </div>
+                        `;
+                        folderContent.appendChild(itemDiv);
+                        formElements.push({ element: itemDiv, text: form.name.toLowerCase() });
+                    });
+
+                    folderGroup.appendChild(folderHeader);
+                    folderGroup.appendChild(folderContent);
+                    fragment.appendChild(folderGroup);
+                });
+
+                navMenu.appendChild(fragment);
+
+                navMenu.addEventListener('scroll', () => {
+                    const headers = navMenu.querySelectorAll('.folder-header');
+                    headers.forEach(header => {
+                        if (header.getBoundingClientRect().top <= navMenu.getBoundingClientRect().top + 1) {
+                            header.classList.add('is-pinned-top');
+                        } else {
+                            header.classList.remove('is-pinned-top');
+                        }
+                    });
+                });
+                
+            } catch (error) {
+                console.error(error);
+                skeletonLoader.innerHTML = '<div style="padding:16px; color:#ef4444; font-size:0.875rem; text-align:center; background:#fef2f2; border-radius:8px;">Lỗi: Không thể kết nối dữ liệu. Hãy kiểm tra Quyền Firebase.</div>';
+            }
+        }
+
+        let isFolderSortMode = false;
+        let isFolderDeleteMode = false;
+        const btnFinishAction = document.getElementById('btn-finish-action');
+        const btnHeaderAddAction = document.getElementById('btn-header-add');
+        const subFolderMenu = document.getElementById('hd-folder-sub');
+
+        function toggleActionMode(mode) {
+            isFolderSortMode = (mode === 'sort');
+            isFolderDeleteMode = (mode === 'delete');
+
+            document.body.classList.toggle('sort-mode-active', isFolderSortMode);
+            document.body.classList.toggle('delete-mode-active', isFolderDeleteMode);
+
+            headerDropdown.classList.remove('show');
+            subFolderMenu.style.display = 'none';
+
+            if (isFolderSortMode || isFolderDeleteMode) {
+                btnFinishAction.style.display = 'flex';
+                btnHeaderAddAction.style.display = 'none';
+            } else {
+                btnFinishAction.style.display = 'none';
+                btnHeaderAddAction.style.display = 'flex';
+            }
+        }
+
+        // =========================================================
+        // --- SỰ KIỆN CỦA MENU QUẢN LÝ THƯ MỤC ---
+        // =========================================================
+        
+        // 1. Nút Sắp xếp
+        document.getElementById('menu-sort-folder').addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleActionMode('sort');
+            showToast('Đã bật chế độ sắp xếp', 'success');
+        });
+
+        // 2. Nút Thêm mới Thư mục
+        document.getElementById('menu-add-folder').addEventListener('click', (e) => {
+            e.stopPropagation();
+            headerDropdown.classList.remove('show');
+            document.getElementById('hd-folder-sub').style.display = 'none'; // Đóng menu con
+            
+            editingFolderId = null;
+            document.getElementById('folder-modal-title').textContent = "Thêm thư mục mới";
+            document.getElementById('submit-folder-modal-btn').textContent = "Thêm mới";
+            document.getElementById('folder-name').value = '';
+            document.getElementById('folder-color').value = '#2563eb';
+            
+            toggleModal(folderModal, true, document.getElementById('folder-name'));
+        });
+
+        // 3. Nút Hiện/Giấu Thư mục ẩn
+        document.getElementById('menu-toggle-hidden-folders').addEventListener('click', async (e) => {
+            e.stopPropagation();
+            isShowHiddenFolders = !isShowHiddenFolders;
+            localStorage.setItem('show-hidden-folders', isShowHiddenFolders);
+            
+            const textEl = document.getElementById('text-toggle-hidden');
+            const iconEl = document.getElementById('icon-toggle-hidden');
+            
+            if (isShowHiddenFolders) {
+                textEl.textContent = "Giấu thư mục ẩn";
+                iconEl.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+            } else {
+                textEl.textContent = "Hiện thư mục ẩn";
+                iconEl.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
+            }
+            
+            showToast(isShowHiddenFolders ? 'Đang hiển thị các thư mục bị ẩn' : 'Đã giấu các thư mục ẩn');
+            await loadAndRenderForms(); 
+        });
+
+        // 4. Nút Xóa Thư mục
+        document.getElementById('menu-delete-folder').addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleActionMode('delete');
+            showToast('Đã bật chế độ xóa thư mục', 'success');
+        });
+
+        // 5. Nút Hoàn tất (Sắp xếp/Xóa)
+        btnFinishAction.addEventListener('click', () => {
+            toggleActionMode('none');
+            showToast('Đã hoàn tất thao tác', 'success');
+        });
+
+        document.getElementById('menu-add-form').addEventListener('click', () => {
+            headerDropdown.classList.remove('show');
+            document.getElementById('modal-edit-title').style.display = 'none'; // Ẩn chữ
+            document.getElementById('form-tabs-container').style.display = 'flex'; // Hiện cụm Tab
+            switchFormTab('single');
+            renderUserCheckboxes("");
+            toggleModal(formModal, true, document.getElementById('form-name'));
+        });
+		// =========================================================
+        // --- XỬ LÝ BẢNG QUẢN LÝ PHÂN QUYỀN HÀNG LOẠT (BẢN PRO) ---
+        // =========================================================
+        const permissionModal = document.getElementById('permission-modal');
+
+        // Bổ sung CSS cho trạng thái "Đã chọn" và "Khóa nút"
+        const styleHover = document.createElement('style');
+        styleHover.innerHTML = `
+            .perm-item-hover:hover { background-color: rgba(37, 99, 235, 0.05); border-color: rgba(37, 99, 235, 0.15) !important; }
+            .perm-selected { background-color: rgba(37, 99, 235, 0.08) !important; border-color: rgba(37, 99, 235, 0.4) !important; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+            #perm-search-form:focus, #perm-search-user:focus { border-color: var(--primary) !important; background: #ffffff !important; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+            .btn-perm-disabled { opacity: 0.4; cursor: not-allowed !important; pointer-events: none; }
+        `;
+        document.head.appendChild(styleHover);
+
+        // HÀM TÍNH TOÁN & CẬP NHẬT GIAO DIỆN (ĐẾM SỐ LƯỢNG + TÔ MÀU)
+        function updatePermUI() {
+            // 1. Cập nhật Cột Biểu mẫu
+            const visibleForms = Array.from(document.querySelectorAll('.perm-form-item')).filter(el => el.style.display !== 'none');
+            const checkedForms = visibleForms.filter(el => el.querySelector('.perm-form-cb').checked);
+            
+            document.getElementById('perm-form-count').textContent = `(${checkedForms.length}/${visibleForms.length})`;
+            document.getElementById('perm-form-empty').style.display = visibleForms.length === 0 ? 'block' : 'none';
+            
+            visibleForms.forEach(el => {
+                if (el.querySelector('.perm-form-cb').checked) el.classList.add('perm-selected');
+                else el.classList.remove('perm-selected');
+            });
+
+            // 2. Cập nhật Cột Tài khoản
+            const visibleUsers = Array.from(document.querySelectorAll('.perm-user-item')).filter(el => el.style.display !== 'none');
+            const checkedUsers = visibleUsers.filter(el => el.querySelector('.perm-user-cb').checked);
+            
+            document.getElementById('perm-user-count').textContent = `(${checkedUsers.length}/${visibleUsers.length})`;
+            document.getElementById('perm-user-empty').style.display = visibleUsers.length === 0 ? 'block' : 'none';
+            
+            visibleUsers.forEach(el => {
+                if (el.querySelector('.perm-user-cb').checked) el.classList.add('perm-selected');
+                else el.classList.remove('perm-selected');
+            });
+
+            // 3. Khóa/Mở khóa các nút Hành động
+            const hasForm = checkedForms.length > 0;
+            ['btn-perm-apply', 'btn-perm-lock', 'btn-perm-reset'].forEach(id => {
+                const btn = document.getElementById(id);
+                if (hasForm) btn.classList.remove('btn-perm-disabled');
+                else btn.classList.add('btn-perm-disabled');
+            });
+        }
+
+        // KHI BẤM NÚT MỞ MENU
+        document.getElementById('menu-manage-permissions').addEventListener('click', async () => {
+            headerDropdown.classList.remove('show');
+            permissionModal.classList.add('show');
+            
+            if(document.getElementById('perm-search-form')) document.getElementById('perm-search-form').value = '';
+            if(document.getElementById('perm-search-user')) document.getElementById('perm-search-user').value = '';
+            document.getElementById('perm-select-all-forms').checked = false;
+            document.getElementById('perm-select-all-users').checked = false;
+
+            // Tải danh sách Biểu mẫu
+            const formsContainer = document.getElementById('perm-forms-list');
+            formsContainer.innerHTML = '';
+
+            if(document.getElementById('perm-filter-status')) document.getElementById('perm-filter-status').value = 'all'; 
+            if(document.getElementById('perm-filter-user')) document.getElementById('perm-filter-user').value = 'all'; 
+
+            globalFormsList.forEach(f => {
+                let statusBadge = '';
+                let statusCode = ''; 
+                let usersDataString = '';
+                let subText = `📁 ${escapeHTML(f.folder || 'Chưa phân loại')}`;
+
+                if (!f.allowedUsers || f.allowedUsers.trim() === '') {
+                    statusCode = 'public';
+                    statusBadge = '<span title="Công khai" style="display:flex; align-items:center; justify-content:center; background: #d1fae5; color: #059669; width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg></span>';
+                } else if (f.allowedUsers === 'admin_only') {
+                    statusCode = 'locked';
+                    statusBadge = '<span title="Đã khóa" style="display:flex; align-items:center; justify-content:center; background: #fee2e2; color: #dc2626; width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></span>';
+                } else {
+                    statusCode = 'granted';
+                    usersDataString = f.allowedUsers.toLowerCase();
+                    // Cắt bỏ đuôi @... cho toàn bộ danh sách email
+                    const shortAllowedUsers = f.allowedUsers.split(',').map(e => e.trim().split('@')[0]).join(', ');
+                    subText += ` • 👤 ${escapeHTML(shortAllowedUsers)}`;
+                    statusBadge = '<span title="Đã cấp quyền" style="display:flex; align-items:center; justify-content:center; background: #dbeafe; color: #2563eb; width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg></span>';
+                }
+                               
+                formsContainer.innerHTML += `
+                    <label class="perm-form-item perm-item-hover" data-status="${statusCode}" data-users="${usersDataString}" style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 10px; border-radius: 6px; border: 1px solid transparent; color: var(--text-main); user-select: none; transition: all 0.15s;">
+                        <input type="checkbox" class="perm-form-cb" value="${f.id}" style="margin: 0; width: 16px; height: 16px; cursor: pointer; accent-color: #ef4444; flex-shrink: 0;">
+                        <div style="flex:1; display: flex; flex-direction: column; overflow: hidden;">
+                            <span class="perm-form-name" style="font-weight: 600; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.4;">${escapeHTML(f.name)}</span>
+                            <span style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.4; margin-top: 2px;" title="${escapeHTML(subText)}">${subText}</span>
+                        </div>
+                        ${statusBadge}
+                    </label>
+                `;
+            });
+
+            // Tải danh sách Tài khoản & Đổ vào Menu Lọc
+            const usersContainer = document.getElementById('perm-users-list');
+            const filterUserSelect = document.getElementById('perm-filter-user');
+            if(filterUserSelect) filterUserSelect.innerHTML = '<option value="all">Mọi tài khoản</option>';
+            
+            usersContainer.innerHTML = '<span style="font-size: 0.85rem; color: var(--text-muted); padding: 5px;">Đang tải dữ liệu...</span>';
+            try {
+                const snapshot = await get(ref(db, 'users'));
+                if (snapshot.exists()) {
+                    const usersData = snapshot.val();
+                    usersContainer.innerHTML = '';
+                    Object.keys(usersData).forEach(uid => {
+                        const u = usersData[uid];
+                        if (!u.email || u.role === 'admin') return; 
+                        
+                        // Lấy phần tên trước ký tự @
+                        const shortEmail = u.email.split('@')[0];
+                        const displayName = u.name ? `${u.name} (${shortEmail})` : shortEmail;
+                        
+                        // Đẩy giao diện vào Cột 2
+                        usersContainer.innerHTML += `
+                            <label class="perm-user-item perm-item-hover" style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 10px; border-radius: 6px; border: 1px solid transparent; color: var(--text-main); user-select: none; transition: all 0.15s;">
+                                <input type="checkbox" class="perm-user-cb" value="${escapeHTML(u.email)}" style="margin: 0; width: 16px; height: 16px; cursor: pointer; accent-color: #2563eb; flex-shrink: 0;">
+                                <span class="perm-user-name" style="font-weight: 500; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; line-height: 1.4;" title="${escapeHTML(displayName)}">${escapeHTML(displayName)}</span>
+                            </label>
+                        `;
+                        
+                        // Đẩy dữ liệu vào Menu Lọc Tài Khoản ở Cột 1
+                        if(filterUserSelect) {
+                            filterUserSelect.innerHTML += `<option value="${escapeHTML(u.email.toLowerCase())}">${escapeHTML(displayName)}</option>`;
+                        }
+                    });
+                    if (usersContainer.innerHTML === '') usersContainer.innerHTML = '<span style="font-size: 0.85rem; color: var(--text-muted); padding: 5px;">Chưa có tài khoản khách nào.</span>';
+                }
+            } catch(err) {
+                usersContainer.innerHTML = '<span style="color:red; font-size:0.85rem; padding: 5px;">Lỗi tải danh sách</span>';
+            }
+            
+            // Tính toán giao diện lần đầu sau khi tải xong
+            setTimeout(updatePermUI, 100);
+        });
+
+        // HÀM XỬ LÝ LỌC ĐA CHIỀU (TÌM TÊN, LỌC TRẠNG THÁI, LỌC TÀI KHOẢN)
+        function filterFormsList() {
+            const term = document.getElementById('perm-search-form').value.toLowerCase();
+            const status = document.getElementById('perm-filter-status').value;
+            const userFilter = document.getElementById('perm-filter-user').value;
+            
+            document.querySelectorAll('.perm-form-item').forEach(label => {
+                const text = label.querySelector('.perm-form-name').textContent.toLowerCase();
+                const itemStatus = label.getAttribute('data-status'); 
+                const itemUsers = label.getAttribute('data-users'); // Chuỗi email người được cấp quyền ẩn bên trong
+                
+                // 1. Lọc theo Chữ (Quét cả tên Form VÀ email cấp quyền)
+                const matchText = text.includes(term) || itemUsers.includes(term);
+                
+                // 2. Lọc theo Trạng thái (Khóa/Mở)
+                const matchStatus = (status === 'all' || itemStatus === status);
+                
+                // 3. Lọc riêng theo một Tài khoản cụ thể
+                let matchUser = true;
+                if (userFilter !== 'all') {
+                    if (itemStatus !== 'granted') matchUser = false; // Form khóa hoặc công khai thì bỏ qua
+                    else matchUser = itemUsers.includes(userFilter);
+                }
+                
+                // Form chỉ hiện ra khi thỏa mãn CẢ 3 ĐIỀU KIỆN trên
+                label.style.display = (matchText && matchStatus && matchUser) ? 'flex' : 'none';
+            });
+            updatePermUI(); // Cập nhật lại số lượng (0/0)
+        }
+
+        // Kích hoạt ngay lập tức khi có bất kỳ thay đổi nào
+        document.getElementById('perm-search-form').addEventListener('input', filterFormsList);
+        document.getElementById('perm-filter-status').addEventListener('change', filterFormsList);
+        document.getElementById('perm-filter-user').addEventListener('change', filterFormsList);
+
+        document.getElementById('perm-search-user').addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            document.querySelectorAll('.perm-user-item').forEach(label => {
+                const text = label.querySelector('.perm-user-name').textContent.toLowerCase();
+                label.style.display = text.includes(term) ? 'flex' : 'none';
+            });
+            updatePermUI();
+        });
+
+        // LẮNG NGHE SỰ KIỆN CLICK CHECKBOX (Chọn tất cả & Chọn lẻ)
+        document.getElementById('perm-select-all-forms').addEventListener('change', (e) => {
+            document.querySelectorAll('.perm-form-cb').forEach(cb => {
+                if (cb.closest('.perm-form-item').style.display !== 'none') cb.checked = e.target.checked;
+            });
+            updatePermUI();
+        });
+
+        document.getElementById('perm-select-all-users').addEventListener('change', (e) => {
+            document.querySelectorAll('.perm-user-cb').forEach(cb => {
+                if (cb.closest('.perm-user-item').style.display !== 'none') cb.checked = e.target.checked;
+            });
+            updatePermUI();
+        });
+
+        document.getElementById('perm-forms-list').addEventListener('change', updatePermUI);
+        document.getElementById('perm-users-list').addEventListener('change', updatePermUI);
+
+        document.getElementById('close-permission-modal').addEventListener('click', () => {
+            permissionModal.classList.remove('show');
+        });
+
+        // HÀM XỬ LÝ CẬP NHẬT LÊN FIREBASE
+        async function processBatchPermissions(actionType, event) {
+            const selectedFormCbs = document.querySelectorAll('.perm-form-cb:checked');
+            
+            let newValue = null;
+            if (actionType === 'apply') {
+                const selectedUserCbs = document.querySelectorAll('.perm-user-cb:checked');
+                if (selectedUserCbs.length === 0) {
+                    return showToast('Vui lòng tick chọn ít nhất 1 tài khoản ở Cột 2!', 'error');
+                }
+                newValue = Array.from(selectedUserCbs).map(cb => cb.value).join(', ');
+            } else if (actionType === 'lock') {
+                newValue = 'admin_only';
+            } else if (actionType === 'reset') {
+                newValue = null; 
+            }
+
+            const updates = {};
+            selectedFormCbs.forEach(cb => {
+                updates[`medical_forms/${cb.value}/allowedUsers`] = newValue;
+            });
+
+            const originalBtn = event.currentTarget;
+            const originalText = originalBtn.innerHTML;
+            originalBtn.innerHTML = '<div class="spinner" style="width:16px; height:16px; border-width:2px; margin-right:8px;"></div> Đang xử lý...';
+            
+            // Khóa toàn bộ 3 nút trong lúc lưu
+            ['btn-perm-apply', 'btn-perm-lock', 'btn-perm-reset'].forEach(id => document.getElementById(id).classList.add('btn-perm-disabled'));
+
+            try {
+                await update(ref(db), updates);
+                clearCaches();
+                showToast('Đã áp dụng thay đổi hàng loạt thành công!');
+                
+                await loadAndRenderForms(); 
+                document.getElementById('menu-manage-permissions').click(); 
+                
+            } catch(err) {
+                showToast('Lỗi: ' + err.message, 'error');
+            } finally {
+                originalBtn.innerHTML = originalText;
+                // Khôi phục lại trạng thái nút sau khi lưu lỗi (nếu thành công thì form đã tự reload)
+                updatePermUI(); 
+            }
+        }
+
+        // GẮN SỰ KIỆN CHO 3 NÚT HÀNH ĐỘNG
+        document.getElementById('btn-perm-apply').addEventListener('click', (e) => processBatchPermissions('apply', e));
+        document.getElementById('btn-perm-lock').addEventListener('click', (e) => processBatchPermissions('lock', e));
+        document.getElementById('btn-perm-reset').addEventListener('click', (e) => processBatchPermissions('reset', e));
+		
+        // --- Drag & Drop ---
+        let draggedElement = null;
+        let dragType = null;
+
+        navMenu.addEventListener('mousedown', (e) => {
+            // Ngăn người dùng thường kéo thả
+            if (currentUserRole !== 'admin') return;
+
+            const formGrip = e.target.closest('.nav-item .grip');
+            const folderGrip = e.target.closest('.folder-grip');
+            
+            if (formGrip) {
+                const item = formGrip.closest('.nav-item');
+                if (item) { item.setAttribute('draggable', 'true'); dragType = 'form'; }
+            } else if (folderGrip && isFolderSortMode) { 
+				const group = folderGrip.closest('.folder-group');
+                if (group && group.getAttribute('data-folder') !== 'Chưa phân loại') {
+                    group.setAttribute('draggable', 'true'); dragType = 'folder';
+                }
+            }
+        });
+
+        navMenu.addEventListener('mouseup', (e) => {
+            document.querySelectorAll('[draggable="true"]').forEach(el => el.removeAttribute('draggable'));
+            dragType = null;
+        });
+
+        navMenu.addEventListener('dragstart', (e) => {
+            if (searchInput.value.trim() !== '') { e.preventDefault(); return; }
+            if (dragType === 'form') {
+                draggedElement = e.target.closest('.nav-item');
+                setTimeout(() => draggedElement.classList.add('dragging'), 0);
+            } else if (dragType === 'folder') {
+                draggedElement = e.target.closest('.folder-group');
+                draggedElement.querySelector('.folder-header').classList.add('collapsed');
+                draggedElement.querySelector('.folder-content').classList.add('collapsed');
+                setTimeout(() => draggedElement.classList.add('dragging'), 0);
+            }
+            if(draggedElement) e.dataTransfer.effectAllowed = 'move';
+        });
+
+        navMenu.addEventListener('dragend', () => {
+            if (draggedElement) {
+                draggedElement.classList.remove('dragging');
+                draggedElement.removeAttribute('draggable'); 
+                draggedElement = null; dragType = null;
+                document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+            }
+        });
+
+        navMenu.addEventListener('dragover', (e) => {
+            if (searchInput.value.trim() !== '' || !draggedElement) return;
+            e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+            
+            if (dragType === 'form') {
+                const folderContent = e.target.closest('.folder-content');
+                if (!folderContent) return; 
+                document.querySelectorAll('.folder-content.drag-over').forEach(el => el.classList.remove('drag-over'));
+                folderContent.classList.add('drag-over');
+
+                const afterElement = getDragAfterElement(folderContent, e.clientY, '.nav-item');
+                if (afterElement == null) folderContent.appendChild(draggedElement);
+                else folderContent.insertBefore(draggedElement, afterElement);
+            } 
+            else if (dragType === 'folder') {
+                const overFolder = e.target.closest('.folder-group');
+                if (!overFolder || overFolder === draggedElement) return;
+                
+                document.querySelectorAll('.folder-group.drag-over').forEach(el => el.classList.remove('drag-over'));
+                overFolder.classList.add('drag-over');
+
+                const container = navMenu;
+                const afterElement = getDragAfterElement(container, e.clientY, '.folder-group:not(.dragging)');
+                
+                const uncatFolder = [...container.querySelectorAll('.folder-group')].find(el => el.getAttribute('data-folder') === 'Chưa phân loại');
+
+                if (afterElement == null) {
+                    if (uncatFolder && draggedElement !== uncatFolder) {
+                        container.insertBefore(draggedElement, uncatFolder);
+                    } else {
+                        container.appendChild(draggedElement);
+                    }
+                } else {
+                    container.insertBefore(draggedElement, afterElement);
+                }
+            }
+        });
+
+        function getDragAfterElement(container, y, selector) {
+            const draggableElements = [...container.querySelectorAll(`${selector}:not(.dragging)`)];
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                if (offset < 0 && offset > closest.offset) return { offset: offset, element: child };
+                else return closest;
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+
+        navMenu.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            if (searchInput.value.trim() !== '' || !dragType) return;
+            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+
+            const updates = {};
+            
+            if (dragType === 'form') {
+                let globalIndex = 1;
+                navMenu.querySelectorAll('.folder-group').forEach(folder => {
+                    const folderName = folder.getAttribute('data-folder');
+                    if(!folderName) return; 
+                    const dbFolderValue = folderName === 'Chưa phân loại' ? '' : folderName;
+                    
+                    folder.querySelectorAll('.nav-item').forEach(item => {
+                        const id = item.getAttribute('data-id');
+                        if (id) {
+                            updates[`medical_forms/${id}/order`] = globalIndex++;
+                            updates[`medical_forms/${id}/folder`] = dbFolderValue; 
+                        }
+                    });
+                });
+            } else if (dragType === 'folder') {
+                let folderIndex = 1;
+                navMenu.querySelectorAll('.folder-group').forEach(folder => {
+                    const fId = folder.getAttribute('data-folder-id');
+                    if (fId) { updates[`medical_folders/${fId}/order`] = folderIndex++; }
+                });
+            }
+
+            try {
+                if (Object.keys(updates).length > 0) {
+                    await update(ref(db), updates);
+                    clearCaches();
+                    showToast('Đã lưu vị trí mới!'); 
+                }
+            } catch (err) {
+                showToast("Lỗi: " + err.message, 'error');
+                await loadAndRenderForms(); 
+            }
+        });
+
+        // --- Context Menu Management ---
+        function closeAllContextMenus() {
+            formContextMenu.classList.remove('show');
+            folderContextMenu.classList.remove('show');
+            setTimeout(() => {
+                if (!formContextMenu.classList.contains('show')) formContextMenu.style.display = 'none';
+                if (!folderContextMenu.classList.contains('show')) folderContextMenu.style.display = 'none';
+            }, 200);
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.context-menu')) closeAllContextMenus();
+        });
+        navMenu.addEventListener('scroll', closeAllContextMenus);
+
+        function showContextMenu(menuElement, e) {
+            e.preventDefault(); closeAllContextMenus();
+            menuElement.style.visibility = 'hidden'; menuElement.style.display = 'flex';
+            
+            let x = e.clientX; let y = e.clientY;
+            const menuWidth = menuElement.offsetWidth || 200; 
+            const menuHeight = menuElement.offsetHeight || 220; 
+            if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth - 10;
+            if (y + menuHeight > window.innerHeight) y = window.innerHeight - menuHeight - 10;
+
+            menuElement.style.left = `${x}px`; menuElement.style.top = `${y}px`;
+            menuElement.style.visibility = ''; menuElement.classList.add('show');
+        }
+
+        navMenu.addEventListener('contextmenu', (e) => {
+            const formItem = e.target.closest('.nav-item');
+            const folderHeader = e.target.closest('.folder-header');
+
+            if (formItem) {
+                currentFormContext = {
+                    id: formItem.getAttribute('data-id'),
+                    name: formItem.getAttribute('data-name'),
+                    folder: formItem.getAttribute('data-folder'),
+                    url: formItem.getAttribute('data-url'),
+                    wordUrl: formItem.getAttribute('data-word-url'),
+                    downloadUrl: formItem.getAttribute('data-download-url'),
+					allowedUsers: formItem.getAttribute('data-allowed-users')
+                };
+                document.getElementById('cm-download-word-btn').style.display = currentFormContext.downloadUrl ? 'flex' : 'none';
+                showContextMenu(formContextMenu, e);
+            } 
+            else if (folderHeader) {
+                // Ngăn mở menu thư mục nếu không phải admin
+                if (currentUserRole !== 'admin') {
+                    e.preventDefault();
+                    return;
+                }
+
+                const group = folderHeader.closest('.folder-group');
+                const folderName = group.getAttribute('data-folder');
+                if (folderName === 'Chưa phân loại') return;
+
+                currentFolderContext = {
+                    id: group.getAttribute('data-folder-id'),
+                    name: folderName,
+                    isHidden: group.classList.contains('is-hidden-folder')
+                };
+                
+                const pinBtn = document.getElementById('fcm-pin-btn').querySelector('span');
+                const isPinned = folderHeader.querySelector('.pin-icon') !== null;
+                pinBtn.textContent = isPinned ? 'Bỏ ghim' : 'Ghim';
+
+                const hideBtnSpan = document.getElementById('fcm-hide-btn').querySelector('span');
+                const hideBtnSvg = document.getElementById('fcm-hide-btn').querySelector('svg');
+                if (currentFolderContext.isHidden) {
+                    hideBtnSpan.textContent = 'Bỏ ẩn thư mục';
+                    hideBtnSvg.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+                } else {
+                    hideBtnSpan.textContent = 'Ẩn thư mục';
+                    hideBtnSvg.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
+                }
+
+                showContextMenu(folderContextMenu, e);
+            }
+        });
+
+        // --- Form Context Actions ---
+        navMenu.addEventListener('click', (e) => {
+            const btn = e.target.closest('.tab-btn');
+            if (btn) {
+                const currentActive = navMenu.querySelector('.tab-btn.active');
+                if (currentActive) currentActive.classList.remove('active');
+                btn.classList.add('active');
+                setPdfSource(btn.getAttribute('data-src'));
+
+                const itemDiv = btn.closest('.nav-item');
+                const formName = itemDiv.getAttribute('data-name');
+                const folderName = itemDiv.getAttribute('data-folder') || 'Chưa phân loại';
+                updateBreadcrumbs(folderName, formName);
+
+                if (window.innerWidth <= 768) closeMobileMenu();
+            }
+        });
+
+        document.getElementById('cm-open-new-btn').addEventListener('click', () => { window.open(currentFormContext.url, '_blank'); closeAllContextMenus(); });
+        document.getElementById('cm-copy-btn').addEventListener('click', () => { navigator.clipboard.writeText(currentFormContext.url).then(() => showToast('Đã sao chép liên kết!')).catch(() => showToast('Lỗi.', 'error')); closeAllContextMenus(); });
+        document.getElementById('cm-download-word-btn').addEventListener('click', () => { window.open(currentFormContext.downloadUrl, '_blank'); closeAllContextMenus(); });
+        
+        document.getElementById('cm-edit-btn').addEventListener('click', () => {
+            closeAllContextMenus();
+            editingFormId = currentFormContext.id;
+            document.getElementById('form-name').value = currentFormContext.name;
+            document.getElementById('form-folder').value = currentFormContext.folder || '';
+            document.getElementById('form-url').value = currentFormContext.url;
+            document.getElementById('form-word-url').value = currentFormContext.wordUrl || '';
+            renderUserCheckboxes(currentFormContext.allowedUsers || "");
+            
+            // Hiện chữ và Ẩn thanh Tab đi
+            document.getElementById('modal-edit-title').style.display = 'flex';
+            document.getElementById('form-tabs-container').style.display = 'none'; 
+            switchFormTab('single');
+            
+            toggleModal(formModal, true, document.getElementById('form-name'));
+        });
+        document.getElementById('cm-delete-btn').addEventListener('click', async () => {
+            closeAllContextMenus();
+            showConfirmDialog(`Bạn có chắc muốn xóa biểu mẫu <b>"${currentFormContext.name}"</b> vĩnh viễn không?<br><span style="font-size:0.85em; color: var(--text-muted);">(File lưu trên Google Drive cũng sẽ bị đưa vào Thùng rác)</span>`, async () => {
+				try {
+                    // 1. TRÍCH XUẤT ID FILE VÀ GỬI LỆNH XÓA LÊN DRIVE
+                    // 1. TRÍCH XUẤT ID FILE VÀ GỬI LỆNH XÓA LÊN DRIVE (DÙNG GET ĐỂ CHỐNG MẤT DỮ LIỆU)
+                    let fileId = null;
+                    const urlToCheck = currentFormContext.url || "";
+                    
+                    const matchD = urlToCheck.match(/\/d\/([a-zA-Z0-9-_]+)/);
+                    const matchId = urlToCheck.match(/id=([a-zA-Z0-9-_]+)/);
+                    
+                    if (matchD) fileId = matchD[1];
+                    else if (matchId) fileId = matchId[1];
+
+                    if (fileId) {
+                        const GAS_URL = "https://script.google.com/macros/s/AKfycbxb97Y6GsrJzUC1e5q9wIua_3YXpRqC-jnCIABCLvfNTZnaHrlsYSBd63AgyNJx5ZR5/exec";
+                        // Gắn trực tiếp action và fileId vào đường link để vượt qua Redirect của Google
+                        const deleteUrl = `${GAS_URL}?action=delete&fileId=${fileId}`;
+                        
+                        fetch(deleteUrl, { mode: 'no-cors' }).catch(e => console.log('Lỗi xóa Drive:', e));
+                    }
+
+                    // 2. XÓA BIỂU MẪU TRÊN DATABASE CỦA WEB
+					if (viewer.src.includes(currentFormContext.url)) viewer.src = ''; 
+					await remove(ref(db, `medical_forms/${currentFormContext.id}`));
+					clearCaches(); 
+                    showToast('Đã xóa biểu mẫu và file đính kèm!'); 
+                    await loadAndRenderForms();
+				} catch (err) { 
+                    showToast("Lỗi: " + err.message, 'error'); 
+                }
+			});
+		});
+
+        // --- Folder Context Actions ---
+        document.getElementById('fcm-pin-btn').addEventListener('click', async () => {
+            closeAllContextMenus();
+            if (!currentFolderContext.id) return showToast('Thư mục này chưa được lưu chuẩn.', 'error');
+            try {
+                const snap = await get(ref(db, `medical_folders/${currentFolderContext.id}/isPinned`));
+                const currentStatus = snap.exists() ? snap.val() : false;
+                await update(ref(db, `medical_folders/${currentFolderContext.id}`), { isPinned: !currentStatus });
+                clearCaches(); await loadAndRenderForms();
+            } catch (error) { showToast("Lỗi ghim: " + error.message, 'error'); }
+        });
+
+        document.getElementById('fcm-edit-btn').addEventListener('click', async () => {
+            closeAllContextMenus();
+            if (!currentFolderContext.id) return showToast('Hãy làm mới trang rồi thử lại.', 'error');
+            
+            editingFolderId = currentFolderContext.id;
+            editingFolderOldName = currentFolderContext.name;
+            
+            document.getElementById('folder-name').value = currentFolderContext.name;
+            const snap = await get(ref(db, `medical_folders/${editingFolderId}/color`));
+            document.getElementById('folder-color').value = snap.exists() ? snap.val() : '#2563eb';
+            
+            document.getElementById('folder-modal-title').textContent = "Sửa Thư mục";
+            document.getElementById('submit-folder-modal-btn').textContent = "Cập nhật";
+            
+            toggleModal(folderModal, true, document.getElementById('folder-name'));
+        });
+		
+
+        // 2. XỬ LÝ NÚT KHÓA RIÊNG LẺ 1 BIỂU MẪU TỪ MENU CHUỘT PHẢI
+        document.getElementById('cm-lock-btn').addEventListener('click', async () => {
+            closeAllContextMenus();
+            showConfirmDialog(`Đưa biểu mẫu <b>"${currentFormContext.name}"</b> về trạng thái <b>Chỉ Admin được xem</b>?`, async () => {
+                try {
+                    await update(ref(db, `medical_forms/${currentFormContext.id}`), { allowedUsers: 'admin_only' });
+                    clearCaches(); 
+                    showToast('Đã khóa biểu mẫu thành công!'); 
+                    await loadAndRenderForms();
+                } catch (err) { 
+                    showToast("Lỗi: " + err.message, 'error'); 
+                }
+            });
+        });
+        document.getElementById('fcm-hide-btn').addEventListener('click', async () => {
+            closeAllContextMenus();
+            if (!currentFolderContext.id) return showToast('Thư mục này không thể ẩn.', 'error');
+            try {
+                const newStatus = !currentFolderContext.isHidden;
+                await update(ref(db, `medical_folders/${currentFolderContext.id}`), { isHidden: newStatus });
+                clearCaches(); 
+                showToast(newStatus ? 'Đã ẩn thư mục!' : 'Đã hiện thư mục!'); 
+                await loadAndRenderForms();
+            } catch (error) { showToast("Lỗi: " + error.message, 'error'); }
+        });
+
+        // --- Modals Logic ---
+        function toggleModal(modalEl, show, focusEl = null) {
+            if (show) {
+                modalEl.classList.add('show');
+                if (focusEl) setTimeout(() => { focusEl.focus(); focusEl.select(); }, 100);
+            } else {
+                modalEl.classList.remove('show');
+                if(modalEl === formModal) { 
+                    medicalForm.reset(); 
+                    bulkForm.reset(); // Dọn dẹp cả dữ liệu bên Tab Quét hàng loạt
+                    editingFormId = null; 
+                    document.getElementById('upload-progress-bar').style.display = 'none';
+                    document.getElementById('upload-status-text').style.display = 'none';
+                    document.getElementById('form-file-upload').value = '';
+                    
+                    document.getElementById('form-url').setAttribute('required', 'true'); 
+                    if (document.getElementById('form-search-user')) document.getElementById('form-search-user').value = '';
+                    if (document.getElementById('form-select-all-users')) document.getElementById('form-select-all-users').checked = false;
+                }
+                if(modalEl === folderModal) { folderForm.reset(); editingFolderId = null; }
+            }
+        }
+
+        document.getElementById('close-modal-btn').addEventListener('click', () => toggleModal(formModal, false));
+        
+        document.getElementById('close-folder-modal-btn').addEventListener('click', () => toggleModal(folderModal, false));
+        document.getElementById('cancel-folder-modal-btn').addEventListener('click', () => toggleModal(folderModal, false));
+		// =========================================================
+    // --- XỬ LÝ LƯU THƯ MỤC MỚI / CẬP NHẬT ---
+    // =========================================================
+    document.getElementById('submit-folder-modal-btn').addEventListener('click', async () => {
+        const newName = document.getElementById('folder-name').value.trim();
+        const newColor = document.getElementById('folder-color').value;
+        const btnSubmit = document.getElementById('submit-folder-modal-btn');
+
+        if (!newName) {
+            showToast('Vui lòng nhập tên thư mục!', 'error');
+            return;
+        }
+
+        // Khóa nút và hiện hiệu ứng loading
+        const originalText = btnSubmit.textContent;
+        btnSubmit.innerHTML = '<div class="spinner" style="width: 14px; height: 14px; border-width: 2px; border-color: rgba(255,255,255,0.3); border-top-color: #fff; display: inline-block; vertical-align: middle; margin-right: 6px;"></div> Đang lưu...';
+        btnSubmit.disabled = true;
+
+        try {
+            if (editingFolderId) {
+                // Trường hợp cập nhật thư mục cũ
+                const updates = {};
+                updates[`medical_folders/${editingFolderId}/name`] = newName;
+                updates[`medical_folders/${editingFolderId}/color`] = newColor;
+
+                if (newName !== editingFolderOldName) {
+                    globalFormsList.forEach(form => {
+                        if (form.folder === editingFolderOldName) {
+                            updates[`medical_forms/${form.id}/folder`] = newName;
+                        }
+                    });
+                }
+                await update(ref(db), updates);
+                showToast('Đã cập nhật thư mục thành công!', 'success'); 
+            } else {
+                // Trường hợp tạo thư mục mới
+                const count = document.querySelectorAll('.folder-group').length;
+                await set(push(ref(db, 'medical_folders')), { 
+                    name: newName, 
+                    createdAt: Date.now(), 
+                    order: count, 
+                    color: newColor, 
+                    isPinned: false 
+                });
+                showToast('Đã tạo thư mục mới!', 'success');
+            }
+
+            // Đóng popup và tải lại giao diện
+            toggleModal(folderModal, false); 
+            clearCaches(); 
+            await loadAndRenderForms();
+
+        } catch (err) { 
+            showToast("Lỗi lưu thư mục: " + err.message, 'error'); 
+        } finally {
+            // Phục hồi lại nút bấm
+            btnSubmit.textContent = originalText;
+            btnSubmit.disabled = false;
+        }
+    });
+
+        const GOOGLE_DRIVE_API_KEY = 'AIzaSyANZsw6TKN0Et992ToKO75MLtCUhmZWxZE';
+		// =========================================================
+        // --- HIỆU ỨNG KÉO THẢ FILE & TÌM KIẾM PHÂN QUYỀN ---
+        // =========================================================
+        
+        // 1. Logic Kéo thả file
+        const dropZone = document.getElementById('upload-drop-zone');
+        const fileInput = document.getElementById('form-file-upload');
+
+        if (dropZone && fileInput) {
+            // Khi click vào vùng nét đứt -> Kích hoạt nút ẩn Chọn file
+            dropZone.addEventListener('click', (e) => {
+                if (e.target !== fileInput) fileInput.click();
+            });
+
+            // Khi kéo file lơ lửng trên vùng -> Đổi màu nền nhấn mạnh
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.style.backgroundColor = 'rgba(37, 99, 235, 0.08)';
+                dropZone.style.borderColor = '#1d4ed8';
+            });
+
+            // Khi kéo file ra khỏi vùng -> Trả về màu cũ
+            dropZone.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                dropZone.style.backgroundColor = 'var(--bg-body)';
+                dropZone.style.borderColor = 'var(--primary)';
+            });
+
+            // Khi thả file vào vùng -> Tự động nhận diện file
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.style.backgroundColor = 'var(--bg-body)';
+                dropZone.style.borderColor = 'var(--primary)';
+                
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    fileInput.files = e.dataTransfer.files;
+                    fileInput.dispatchEvent(new Event('change')); // Kích hoạt chạy hàm Upload Drive
+                }
+            });
+        }
+
+        // 2. Logic Tìm kiếm tài khoản
+        document.getElementById('form-search-user').addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            const labels = document.querySelectorAll('#form-allowed-users-list label');
+            labels.forEach(label => {
+                const text = label.textContent.toLowerCase();
+                // Ẩn/Hiện tài khoản dựa theo từ khóa
+                label.style.display = text.includes(term) ? 'flex' : 'none';
+            });
+        });
+
+        // 3. Logic Chọn tất cả tài khoản
+        document.getElementById('form-select-all-users').addEventListener('change', (e) => {
+            const checkboxes = document.querySelectorAll('#form-allowed-users-list input[type="checkbox"]');
+            checkboxes.forEach(cb => {
+                // Rất thông minh: Chỉ tick chọn những tài khoản đang hiển thị (không bị ẩn bởi ô tìm kiếm)
+                if (cb.closest('label').style.display !== 'none') {
+                    cb.checked = e.target.checked;
+                }
+            });
+        });
+		// --- 1. SỰ KIỆN KHI CHỌN/KÉO THẢ FILE (Chỉ ghi nhận tên, chưa upload vội) ---
+        document.getElementById('form-file-upload').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            const statusText = document.getElementById('upload-status-text');
+            const progressBar = document.getElementById('upload-progress-bar');
+            const urlInput = document.getElementById('form-url');
+            
+            if (file) {
+                progressBar.style.display = 'none';
+                statusText.style.display = 'block';
+                statusText.textContent = `📎 ${file.name} (Tải lên khi bấm Lưu)`;
+                statusText.style.color = '#2563eb';
+                // Tạm thời bỏ yêu cầu bắt buộc nhập Link vì người dùng đã đính kèm File
+                urlInput.removeAttribute('required'); 
+            }
+        });
+
+        // --- 2. SỰ KIỆN BẤM NÚT LƯU LẠI (Thực hiện Upload file trước, sau đó mới lưu dữ liệu) ---
+        medicalForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const btnSubmit = document.getElementById('submit-modal-btn');
+            const fileInput = document.getElementById('form-file-upload');
+            const file = fileInput.files[0];
+            
+            const name = document.getElementById('form-name').value.trim();
+            const folder = document.getElementById('form-folder').value.trim();
+            let url = document.getElementById('form-url').value.trim();
+            let wordUrl = document.getElementById('form-word-url').value.trim();
+            
+            const checkedBoxes = document.querySelectorAll('#form-allowed-users-list input[type="checkbox"]:checked');
+            const allowedUsers = Array.from(checkedBoxes).map(cb => cb.value).join(', ');
+            
+            const GAS_URL = "https://script.google.com/macros/s/AKfycbxb97Y6GsrJzUC1e5q9wIua_3YXpRqC-jnCIABCLvfNTZnaHrlsYSBd63AgyNJx5ZR5/exec";
+            
+            // Khóa nút lưu để tránh bấm 2 lần
+            const originalBtnText = btnSubmit.textContent;
+            btnSubmit.disabled = true;
+
+            try {
+                // NẾU CÓ ĐÍNH KÈM FILE -> PHẢI UPLOAD LÊN DRIVE TRƯỚC KHI LƯU
+                if (file) {
+                    btnSubmit.textContent = "Đang tải file lên Drive...";
+                    const progressBar = document.getElementById('upload-progress-bar');
+                    const progressFill = document.getElementById('upload-progress-fill');
+                    const statusText = document.getElementById('upload-status-text');
+                    
+                    progressBar.style.display = 'block';
+                    statusText.textContent = 'Đang đẩy dữ liệu lên Google Drive...';
+                    statusText.style.color = '#059669';
+                    progressFill.style.width = '40%';
+                    
+                    // Chuyển file sang Base64
+                    const base64Data = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = (event) => resolve(event.target.result.split(',')[1]);
+                        reader.onerror = (error) => reject(error);
+                        reader.readAsDataURL(file);
+                    });
+                    
+                    progressFill.style.width = '70%';
+                    
+                    const formData = new URLSearchParams();
+                    formData.append('fileName', file.name);
+                    formData.append('mimeType', file.type);
+                    formData.append('fileData', base64Data);
+                    
+                    // Gửi file lên Apps Script
+                    const response = await fetch(GAS_URL, { method: 'POST', body: formData });
+                    const result = await response.json();
+                    
+                    if (result.status === 'success') {
+                        progressFill.style.width = '100%';
+                        statusText.textContent = 'Tải file thành công! Đang lưu hệ thống...';
+                        
+                        // Lấy link trả về tự động điền vào biến url
+                        if (file.name.toLowerCase().endsWith('.pdf')) {
+                            url = result.url;
+                        } else {
+                            wordUrl = result.downloadUrl;
+                            if (!url) url = result.url;
+                        }
+                    } else {
+                        throw new Error(result.message || "Lỗi không xác định từ Google Drive");
+                    }
+                }
+                
+                // NẾU KHÔNG CHỌN FILE HOẶC ĐÃ UPLOAD XONG -> TIẾN HÀNH LƯU VÀO FIREBASE
+                if (!url) throw new Error("Vui lòng nhập đường dẫn URL hoặc tải file lên!");
+                if (url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
+                if (wordUrl && !/^https?:\/\//i.test(wordUrl)) wordUrl = 'https://' + wordUrl;
+                
+                btnSubmit.textContent = "Đang lưu biểu mẫu...";
+
+                if (editingFormId) {
+                    await update(ref(db, `medical_forms/${editingFormId}`), { name, folder, url, wordUrl, allowedUsers });
+                    showToast('Cập nhật thành công!'); 
+                } else {
+                    const order = document.querySelectorAll('.nav-item').length + 1;
+                    await set(push(ref(db, 'medical_forms')), { name, folder, url, wordUrl, order, allowedUsers });
+                    showToast('Đã thêm biểu mẫu mới!'); 
+                }
+                
+                toggleModal(formModal, false); 
+                clearCaches(); 
+                await loadAndRenderForms();
+                
+            } catch (err) { 
+                showToast("Lỗi: " + err.message, 'error'); 
+                const statusText = document.getElementById('upload-status-text');
+                if (statusText) {
+                    statusText.textContent = 'Lỗi: ' + err.message;
+                    statusText.style.color = '#ef4444';
+                }
+            } finally {
+                btnSubmit.disabled = false;
+                btnSubmit.textContent = originalBtnText;
+            }
+        });
+
+        bulkForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const btnSubmit = document.getElementById('submit-bulk-modal-btn');
+            const originalBtnText = btnSubmit.textContent;
+            btnSubmit.textContent = "Đang xử lý quét...";
+            btnSubmit.disabled = true;
+
+            const selectedFolder = document.getElementById('bulk-folder').value.trim();
+            let url = document.getElementById('bulk-url').value.trim();
+
+            try {
+                const folderMatch = url.match(/\/folders\/([a-zA-Z0-9-_]+)/);
+                if (!folderMatch || !folderMatch[1]) {
+                    throw new Error("Đường dẫn không hợp lệ. Vui lòng dán chính xác link thư mục Google Drive!");
+                }
+
+                const driveFolderId = folderMatch[1];
+                showToast('Đang kết nối tới Drive...', 'success');
+
+                const metaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${driveFolderId}?key=${GOOGLE_DRIVE_API_KEY}`);
+                if (!metaRes.ok) throw new Error("Không thể kết nối thư mục. Hãy kiểm tra lại quyền chia sẻ (Bất kỳ ai có link) hoặc API Key.");
+                const metaData = await metaRes.json();
+                const driveFolderName = metaData.name || 'Thư mục Drive';
+
+                const filesRes = await fetch(`https://www.googleapis.com/drive/v3/files?q='${driveFolderId}'+in+parents+and+trashed=false+and+mimeType!='application/vnd.google-apps.folder'&fields=files(id,name,mimeType)&key=${GOOGLE_DRIVE_API_KEY}`);
+                const filesData = await filesRes.json();
+
+                if (!filesData.files || filesData.files.length === 0) {
+                    throw new Error("Thư mục trống hoặc không chứa định dạng file hợp lệ.");
+                }
+
+                let targetFolder = selectedFolder; 
+                if (!targetFolder) {
+                    targetFolder = driveFolderName; 
+                    const existingFolderSnap = await get(ref(db, 'medical_folders'));
+                    let folderExists = false;
+                    if (existingFolderSnap.exists()) {
+                        Object.values(existingFolderSnap.val()).forEach(f => {
+                            if (f.name === targetFolder) folderExists = true;
+                        });
+                    }
+                    if (!folderExists) {
+                        const count = document.querySelectorAll('.folder-group').length;
+                        await set(push(ref(db, 'medical_folders')), { name: targetFolder, createdAt: Date.now(), order: count, color: '#2563eb', isPinned: false });
+                    }
+                }
+
+                let orderCount = document.querySelectorAll('.nav-item').length + 1;
+                const updates = {};
+                
+                filesData.files.forEach((file) => {
+                    const newFormRef = push(ref(db, 'medical_forms')).key;
+                    const cleanName = file.name.replace(/\.[^/.]+$/, "");
+                    const filePreviewUrl = `https://drive.google.com/file/d/${file.id}/preview`;
+                    
+                    let fileWordUrl = "";
+                    if (file.name.endsWith('.docx') || file.name.endsWith('.doc')) {
+                        fileWordUrl = `https://drive.google.com/uc?export=download&id=${file.id}`;
+                    }
+
+                    updates[`medical_forms/${newFormRef}`] = {
+                        name: cleanName,
+                        folder: targetFolder,
+                        url: filePreviewUrl,
+                        wordUrl: fileWordUrl,
+                        order: orderCount++
+                    };
+                });
+
+                await update(ref(db), updates);
+                showToast(`Thành công! Đã thêm ${filesData.files.length} file vào mục "${targetFolder}".`);
+                
+                toggleModal(formModal, false);
+                clearCaches(); 
+                await loadAndRenderForms();
+
+            } catch (err) { 
+                showToast("Lỗi: " + err.message, 'error'); 
+            } finally {
+                btnSubmit.textContent = originalBtnText;
+                btnSubmit.disabled = false;
+            }
+        });
+
+        // --- Tìm kiếm ---
+        searchInput.addEventListener('input', debounce((e) => {
+            const searchTerm = e.target.value.toLowerCase().trim();
+            clearSearchBtn.style.display = searchTerm.length > 0 ? 'block' : 'none';
+            let totalVisibleCount = 0;
+
+            document.querySelectorAll('.folder-group').forEach(group => {
+                let hasVisibleItem = false;
+                
+                group.querySelectorAll('.nav-item').forEach(itemEl => {
+                    const originalText = itemEl.getAttribute('data-safe-name');
+                    const textSpan = itemEl.querySelector('.tab-btn-text');
+                    if (searchTerm === '') {
+                        itemEl.style.display = 'flex'; textSpan.innerHTML = originalText;
+                        hasVisibleItem = true; totalVisibleCount++;
+                    } else if (originalText.toLowerCase().includes(searchTerm)) {
+                        itemEl.style.display = 'flex';
+                        textSpan.innerHTML = originalText.replace(new RegExp(`(${searchTerm})`, 'gi'), '<mark class="highlight">$1</mark>');
+                        hasVisibleItem = true; totalVisibleCount++;
+                    } else { itemEl.style.display = 'none'; }
+                });
+                
+                group.style.display = (hasVisibleItem || (searchTerm === '' && group.querySelectorAll('.nav-item').length === 0)) ? 'block' : 'none';
+                if (searchTerm !== '' && hasVisibleItem) {
+                    group.querySelector('.folder-content').classList.remove('collapsed');
+                    group.querySelector('.folder-header').classList.remove('collapsed');
+                }
+            });
+            noResultMsg.style.display = (totalVisibleCount === 0 && searchTerm !== '') ? 'flex' : 'none';
+        }, 200));
+
+        clearSearchBtn.addEventListener('click', () => { searchInput.value = ''; searchInput.dispatchEvent(new Event('input')); searchInput.focus(); });
+
+        // --- Mobile Logic ---
+        function closeMobileMenu() { sidebar.classList.remove('open'); setTimeout(() => overlay.classList.remove('show'), 50); }
+        document.getElementById('open-menu').addEventListener('click', () => { overlay.classList.add('show'); sidebar.classList.add('open'); });
+        document.getElementById('close-menu').addEventListener('click', closeMobileMenu);
+        overlay.addEventListener('click', closeMobileMenu);
+        
+        document.getElementById('collapse-sidebar-btn').addEventListener('click', () => { document.body.classList.add('sidebar-collapsed'); localStorage.setItem('sidebar-collapsed', 'true'); });
+        document.getElementById('toggle-sidebar-show').addEventListener('click', () => { document.body.classList.remove('sidebar-collapsed'); localStorage.setItem('sidebar-collapsed', 'false'); });
+    });
+    </script>
+</body>
+</html>
